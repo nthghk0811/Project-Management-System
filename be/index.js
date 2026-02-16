@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import express from 'express';
 import authRoute from './routes/auth.route.js';
+import projectRoute from './routes/project.route.js';
 
 dotenv.config();
 const PORT = process.env.PORT;
@@ -13,6 +14,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use('/api/auth', authRoute)
+app.use('/api/projects', projectRoute)
 
 
 await mongoose.connect(process.env.MONGO_URI);

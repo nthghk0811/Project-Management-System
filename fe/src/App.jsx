@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
+import Profile from './pages/Profile/Profile'
 import ProtectedRoute from './components/ProtectedRoute'
 import '../index.css'
 
@@ -28,6 +29,7 @@ function AppRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         </Routes>
 
   );

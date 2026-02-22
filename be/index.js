@@ -4,6 +4,7 @@ import cors from 'cors';
 import express from 'express';
 import authRoute from './routes/auth.route.js';
 import projectRoute from './routes/project.route.js';
+import userRoute from './routes/user.route.js'
 
 dotenv.config();
 const PORT = process.env.PORT;
@@ -15,7 +16,7 @@ app.use(cors({
 app.use(express.json());
 app.use('/api/auth', authRoute)
 app.use('/api/projects', projectRoute)
-
+app.use('/api/users', userRoute)
 
 await mongoose.connect(process.env.MONGO_URI);
 app.get('/', (req, res) => {

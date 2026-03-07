@@ -1,73 +1,28 @@
-import mongoose from 'mongoose';
+// be/models/Task.js
+import mongoose from "mongoose";
 
-const subTaskSchema = new mongoose.Schema(
-    {
-    title: {
-        type: String,
-        required: true,
-        trim: true
+const taskSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    project: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true },
+    creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    assignee: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    status: {
+      type: String,
+      enum: ["To Do", "In Progress", "In Review", "Done"],
+      default: "To Do",
     },
-    isCompleted: {
-        type: Boolean,
-        default: false,
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high"],
+      default: "medium",
     },
-    },
-    { _id: true}
+    startDate: { type: Date },
+    endDate: { type: Date },
+    timeSpent: { type: String, default: "00 : 00 : 00" } // Định dạng HH:MM:SS
+  },
+  { timestamps: true }
 );
 
-const TaskSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  description: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  project: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Project',
-    required: true,
-  },
-  assignedTo: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  dueDate: {
-    type: Date,
-  },
-  subTasks: [subTaskSchema],
-   priority: {
-    type: String,
-    enum: ['low', 'medium', 'high'],
-    default: 'medium',
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'in_progress', 'completed'],
-    default: 'pending',
-  },
-  estimatedTime: {
-    type: Number, //mins
-  },
-    actualTime: {
-    type: Number,
-    default: 0 //mins
-  },
-  commentsCount: {
-    type: Number,
-    default: 0
-  }
-}, { timestamps: true });
-
-
-const Task = mongoose.model('Task', TaskSchema);
-
+const Task = mongoose.model("Task", taskSchema);
 export default Task;

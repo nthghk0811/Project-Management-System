@@ -162,3 +162,92 @@ export const toggleTaskTimer = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+//dashboard
+// be/controllers/task.controller.js
+
+export const getTaskStatistics = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 1. Tìm các dự án mà user tham gia
+    const myProjects = await Project.find({
+      $or: [{ owner: userId }, { members: userId }]
+    }).select('_id');
+    const projectIds = myProjects.map(p => p._id);
+
+    // 2. Lấy toàn bộ task trong các dự án đó
+    const tasks = await Task.find({ project: { $in: projectIds } });
+
+    // 3. Khởi tạo bộ đếm
+    const statusCount = { "To Do": 0, "In Progress": 0, "In Review": 0, "Done": 0 };
+    const priorityCount = { "high": 0, "medium": 0, "low": 0 };
+
+    // 4. Lặp qua từng task và cộng dồn
+    tasks.forEach(task => {
+      if (statusCount[task.status] !== undefined) statusCount[task.status]++;
+      if (priorityCount[task.priority] !== undefined) priorityCount[task.priority]++;
+    });
+
+    // 5. Trả về format đúng như Recharts cần (kèm mã màu Jira)
+    res.json({
+      statusStats: [
+        { name: "Done", value: statusCount["Done"], color: "#36b37e" },        // Xanh lá
+        { name: "In Progress", value: statusCount["In Progress"], color: "#0052cc" }, // Xanh dương
+        { name: "In Review", value: statusCount["In Review"], color: "#ffab00" },     // Vàng
+        { name: "To Do", value: statusCount["To Do"], color: "#42526e" }        // Xám đậm
+      ],
+      priorityStats: [
+        { name: "High", value: priorityCount["high"], color: "#ff5630" },       // Đỏ
+        { name: "Medium", value: priorityCount["medium"], color: "#ffab00" },     // Cam/Vàng
+        { name: "Low", value: priorityCount["low"], color: "#36b37e" }         // Xanh lá
+      ]
+    });
+
+  } catch (error) {
+    console.error("Lỗi thống kê task:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// be/controllers/task.controller.js
+
+export const getRecentActivities = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 1. Tìm các dự án mà user tham gia
+    const myProjects = await Project.find({
+      $or: [{ owner: userId }, { members: userId }]
+    }).select('_id');
+    const projectIds = myProjects.map(p => p._id);
+
+    // 2. Lấy 10 task được cập nhật (hoặc tạo) gần đây nhất
+    const recentTasks = await Task.find({ project: { $in: projectIds } })
+      .sort({ updatedAt: -1 }) // Sắp xếp theo thời gian cập nhật giảm dần (mới nhất lên đầu)
+      .limit(10)
+      .populate('creator', 'fullName avatar');
+
+    // 3. Biến đổi dữ liệu thành dạng lịch sử hoạt động (Activity Log)
+    const activities = recentTasks.map(task => {
+      // Nếu thời gian tạo và cập nhật giống nhau -> Task mới được tạo
+      // Nếu khác nhau -> Task vừa được chỉnh sửa
+      const isNew = task.createdAt.getTime() === task.updatedAt.getTime();
+      
+      return {
+        _id: task._id,
+        user: task.creator,
+        action: isNew ? "created task" : "updated task",
+        taskTitle: task.title,
+        taskStatus: task.status,
+        timestamp: task.updatedAt
+      };
+    });
+
+    res.json(activities);
+  } catch (error) {
+    console.error("Lỗi lấy activities:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

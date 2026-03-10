@@ -52,3 +52,17 @@ export const toggleTaskTimerApi = (taskId) => {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
+
+export const getTaskStatisticsApi = () => {
+  const token = localStorage.getItem("token");
+  return axios.get(`${API}/statistics`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const getRecentActivitiesApi = () => {
+  const token = localStorage.getItem("token");
+  return axios.get(`${API}/activities`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};

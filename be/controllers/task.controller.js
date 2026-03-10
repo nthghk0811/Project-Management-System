@@ -5,7 +5,7 @@ import Project from "../models/Project.js";
 // Tạo task mới
 export const createTask = async (req, res) => {
   try {
-    const { title, projectId, assignee, status, startDate, endDate, timeSpent, parentTask } = req.body;
+    const { title, projectId, assignee, status, priority, startDate, endDate, timeSpent, parentTask } = req.body;
     const creator = req.user.id; // Lấy từ middleware auth
 
     const newTask = new Task({
@@ -14,6 +14,7 @@ export const createTask = async (req, res) => {
       creator,
       assignee,
       status,
+      priority,
       startDate,
       endDate,
       timeSpent,
@@ -248,6 +249,54 @@ export const getRecentActivities = async (req, res) => {
     res.json(activities);
   } catch (error) {
     console.error("Lỗi lấy activities:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// be/controllers/task.controller.js
+
+export const getWorkLogs = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 1. Tìm các dự án của user
+    const myProjects = await Project.find({
+      $or: [{ owner: userId }, { members: userId }]
+    }).select('_id');
+    const projectIds = myProjects.map(p => p._id);
+
+    // 2. Tìm TẤT CẢ các task có thời gian đã log (timeSpent > 0)
+    const tasksWithTime = await Task.find({ 
+      project: { $in: projectIds },
+      timeSpent: { $gt: 0 } 
+    }).sort({ updatedAt: -1 });
+
+    // 3. Tính tổng thời gian (theo giây)
+    const totalSeconds = tasksWithTime.reduce((sum, task) => sum + task.timeSpent, 0);
+
+    // 4. Lấy 10 task gần nhất để vẽ biểu đồ ngang (Bar Chart)
+    const recentLogs = tasksWithTime.slice(0, 10).map(task => {
+      // Format ngày dạng: 05 Nov 2026
+      const dateStr = new Date(task.updatedAt).toLocaleDateString('en-GB', { 
+        day: '2-digit', month: 'short', year: 'numeric' 
+      });
+      
+      return {
+        id: task._id,
+        taskInfo: `${dateStr}||${task.title}`,
+        // Quy đổi giây sang Giờ (Hours) làm tròn 2 chữ số thập phân để vẽ biểu đồ
+        timeValue: parseFloat((task.timeSpent / 3600).toFixed(2)) 
+      };
+    });
+
+    res.json({
+      totalSeconds,
+      workLogData: recentLogs
+    });
+
+  } catch (error) {
+    console.error("Lỗi lấy Work Logs:", error);
     res.status(500).json({ message: error.message });
   }
 };

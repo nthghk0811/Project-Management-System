@@ -66,3 +66,10 @@ export const getRecentActivitiesApi = () => {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
+
+export const getWorkLogsApi = () => {
+  const token = localStorage.getItem("token");
+  return axios.get(`${API}/worklogs`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};

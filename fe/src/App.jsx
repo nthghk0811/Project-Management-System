@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
+import GlobalTasks from './pages/Task/GlobalTasks'
 import ProjectDetail from './pages/ProjectDetail'
 import Profile from './pages/Profile/Profile'
 
@@ -34,7 +35,7 @@ function AppRoutes() {
           <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          {/* <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} /> */}
+          <Route path="/tasks" element={<ProtectedRoute><GlobalTasks /></ProtectedRoute>} />
           {/* <Route path="/tasks/:taskId/subtasks" element={<ProtectedRoute><SubTasksPage /></ProtectedRoute>} /> */}
         </Routes>
 

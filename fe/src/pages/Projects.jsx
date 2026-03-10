@@ -11,14 +11,12 @@ export default function Projects() {
   const [openModal, setOpenModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Tabs: 'my-projects' hoặc 'discover'
   const [activeTab, setActiveTab] = useState('my-projects'); 
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  // Lấy ID user hiện tại để phân quyền Xóa / Rời dự án
-  // Giả sử bạn lưu thông tin user trong localStorage khi login, hoặc lấy từ Context/Redux
+  // Lấy ID user - BẠN HÃY CHECK LẠI XEM "user" CÓ ĐÚNG KEY TRONG LOCALSTORAGE KHÔNG NHÉ
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = user._id || user.id; 
 
@@ -42,39 +40,46 @@ export default function Projects() {
     setSearchQuery("");
   }, [activeTab]);
 
-  // --- ACTIONS ---
   const handleJoin = async (projectId) => {
     try {
       await joinProjectApi(projectId);
       alert("Tham gia dự án thành công!");
-      setActiveTab('my-projects'); // Chuyển về tab của tôi
+      setActiveTab('my-projects');
     } catch (error) {
       console.error(error);
       alert("Không thể tham gia dự án.");
     }
   };
 
-  const handleDelete = async (projectId) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa dự án này vĩnh viễn?")) return;
-    try {
-      await deleteProjectApi(projectId);
-      fetchProjects();
-    } catch (error) {
-      alert("Lỗi khi xóa dự án. Bạn có phải là chủ dự án không?");
+  // --- HÀM GỘP CHUNG XỬ LÝ LEAVE / DELETE ---
+  const handleAction = async (project) => {
+    const ownerId = project.owner?._id || project.owner;
+    const isOwner = String(ownerId) === String(currentUserId);
+
+    if (isOwner) {
+      // Dành cho Owner
+      const confirmMessage = "Bạn là người tạo dự án này. Nếu bạn rời đi, toàn bộ dự án sẽ bị xóa vĩnh viễn. Bạn có chắc chắn muốn tiếp tục?";
+      if (!window.confirm(confirmMessage)) return;
+      
+      try {
+        await deleteProjectApi(project._id); 
+        setProjects(prev => prev.filter(p => p._id !== project._id));
+      } catch (error) {
+        alert(error.response?.data?.message || "Lỗi khi xóa dự án.");
+      }
+    } else {
+      // Dành cho Member
+      if (!window.confirm("Bạn có chắc chắn muốn rời khỏi dự án này?")) return;
+      
+      try {
+        await leaveProjectApi(project._id);
+        setProjects(prev => prev.filter(p => p._id !== project._id));
+      } catch (error) {
+        alert(error.response?.data?.message || "Lỗi khi rời dự án.");
+      }
     }
   };
 
-  const handleLeave = async (projectId) => {
-    if (!window.confirm("Bạn có chắc chắn muốn rời khỏi dự án này?")) return;
-    try {
-      await leaveProjectApi(projectId);
-      fetchProjects();
-    } catch (error) {
-      alert("Lỗi khi rời dự án.");
-    }
-  };
-
-  // --- Lọc và Phân trang ---
   const filteredProjects = projects.filter((p) =>
     p.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -90,10 +95,9 @@ export default function Projects() {
         
         <div className="flex-1 p-8 overflow-y-auto">
           <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
+            {/* ... Giữ nguyên phần Header, Search, Tabs ... */}
+             <div>
               <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Projects Management</h1>
-              
-              {/* Tabs Navigation */}
               <div className="flex space-x-6 mt-4 border-b border-slate-200">
                 <button 
                   onClick={() => setActiveTab('my-projects')}
@@ -137,49 +141,44 @@ export default function Projects() {
                   activeTab={activeTab}
                   currentUserId={currentUserId}
                   onJoin={() => handleJoin(p._id)}
-                  onDelete={() => handleDelete(p._id)}
-                  onLeave={() => handleLeave(p._id)}
+                  // Gọi chung 1 hàm handleAction
+                  onAction={() => handleAction(p)} 
                 />
               ))}
             </div>
           )}
 
-          {/* Giao diện Phân trang (Pagination) */}
-{totalPages > 1 && (
-  <div className="flex justify-center items-center mt-10 space-x-2 text-sm text-gray-500">
-    {/* Nút Previous */}
-    <button 
-      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-      disabled={currentPage === 1}
-      className={`px-3 py-1 rounded-md transition ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:text-black hover:bg-gray-100 cursor-pointer'}`}
-    >
-      Previous
-    </button>
-
-    {/* Các số trang (1, 2, 3...) */}
-    {[...Array(totalPages)].map((_, index) => {
-      const pageNum = index + 1;
-      return (
-        <button 
-          key={pageNum}
-          onClick={() => setCurrentPage(pageNum)}
-          className={`px-3 py-1 rounded-md transition ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-        >
-          {pageNum}
-        </button>
-      );
-    })}
-
-    {/* Nút Next */}
-    <button 
-      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-      disabled={currentPage === totalPages}
-      className={`px-3 py-1 rounded-md transition ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:text-black hover:bg-gray-100 cursor-pointer'}`}
-    >
-      Next
-    </button>
-  </div>
-)}
+          {/* ... Giữ nguyên phần Phân trang ... */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center mt-10 space-x-2 text-sm text-gray-500">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className={`px-3 py-1 rounded-md transition ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:text-black hover:bg-gray-100 cursor-pointer'}`}
+              >
+                Previous
+              </button>
+              {[...Array(totalPages)].map((_, index) => {
+                const pageNum = index + 1;
+                return (
+                  <button 
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-3 py-1 rounded-md transition ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1 rounded-md transition ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:text-black hover:bg-gray-100 cursor-pointer'}`}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <CreateProjectModal open={openModal} onClose={() => setOpenModal(false)} onCreated={fetchProjects} />

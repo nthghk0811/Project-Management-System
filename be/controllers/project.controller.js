@@ -115,9 +115,29 @@ export const leaveProject = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Kéo userId ra khỏi mảng members
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    // NẾU NGƯỜI RỜI LÀ OWNER -> XÓA DỰ ÁN
+    if (project.owner.toString() === userId) {
+      await Project.findByIdAndDelete(id);
+      
+      // Lời khuyên: Nếu dự án có các Task/Issue bên trong, 
+      // bạn cũng nên xóa các Task đó luôn ở đây để tránh rác database:
+      // await Task.deleteMany({ project: id });
+
+      return res.json({ 
+        message: "Vì bạn là Owner, dự án đã bị xóa hoàn toàn khi bạn rời đi.",
+        action: "deleted"
+      });
+    }
+
+    // NẾU LÀ MEMBER BÌNH THƯỜNG -> CHỈ RỜI KHỎI MẢNG MEMBERS
     await Project.findByIdAndUpdate(id, { $pull: { members: userId } });
-    res.json({ message: "Left project successfully" });
+    res.json({ message: "Đã rời khỏi dự án thành công.", action: "left" });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

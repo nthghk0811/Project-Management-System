@@ -31,3 +31,24 @@ export const updateTaskApi = (taskId, data) => {
     headers: { Authorization: `Bearer ${token}` },
   }); 
 };
+
+export const getGlobalTasksApi = () => {
+  const token = localStorage.getItem("token");
+  return axios.get(`${API}/global`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const addTaskCommentApi = (taskId, comment) => {
+  const token = localStorage.getItem("token");
+  return axios.post(`${API}/${taskId}/comments`, { text: comment }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const toggleTaskTimerApi = (taskId) => {
+  const token = localStorage.getItem("token");
+  return axios.put(`${API}/${taskId}/timer`, {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};

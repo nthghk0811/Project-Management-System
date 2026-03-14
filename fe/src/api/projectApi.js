@@ -53,3 +53,14 @@ export const deleteProjectApi = (projectId) => {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
+
+// fe/src/api/projectApi.js
+
+// ... các hàm API cũ
+
+export const updateProjectApi = (id, data) => {
+  const token = localStorage.getItem("token");
+  return axios.put(`${API}/${id}`, data, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};

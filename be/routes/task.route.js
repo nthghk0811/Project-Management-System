@@ -14,9 +14,11 @@ router.get('/statistics', authToken, getTaskStatistics);
 
 router.get('/activities', authToken, getRecentActivities);
 router.get('/worklogs', authToken, getWorkLogs);
+router.get('/performance', authToken, getPerformanceData);
 
 router.post('/:id/comments', authToken, addTaskComment);
 router.put('/:id/timer', authToken, toggleTaskTimer);
 router.put('/:id', authToken, updateTask);
+
 
 export default router;

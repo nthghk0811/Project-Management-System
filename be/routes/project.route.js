@@ -6,7 +6,8 @@ import {
   getDiscoverProjects, // Import thêm
   joinProject,         // Import thêm
   leaveProject,        // Import thêm
-  deleteProject
+  deleteProject,
+  updateProject
 
 } from "../controllers/project.controller.js";
 import { authToken } from "../middlewares/auth.middleware.js";
@@ -21,5 +22,6 @@ router.delete("/:id", authToken, deleteProject); // Route để xóa dự án (c
 router.post("/", authToken, createProject);
 router.get("/", authToken, getMyProjects);
 router.get("/:id", authToken, getProjectById);
+router.put("/:id", authToken, updateProject); // Route để cập nhật dự án
 
 export default router;

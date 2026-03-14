@@ -152,3 +152,31 @@ export const deleteProject = async (req, res) => {
   }
 };
 
+
+
+export const updateProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const updateData = req.body;
+
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    // Chỉ Owner mới được phép đổi trạng thái dự án
+    if (project.owner.toString() !== userId) {
+      return res.status(403).json({ message: "Only the owner can update this project" });
+    }
+
+    const updatedProject = await Project.findByIdAndUpdate(id, updateData, { new: true });
+
+    // === GHI LOG KHI ĐỔI TRẠNG THÁI ===
+    if (updateData.status && updateData.status !== project.status) {
+      await logActivity(userId, `changed project status to ${updateData.status}`, project.name);
+    }
+
+    res.json(updatedProject);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

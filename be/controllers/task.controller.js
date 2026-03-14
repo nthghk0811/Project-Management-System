@@ -258,9 +258,7 @@ export const getPerformanceData = async (req, res) => {
     const userId = req.user.id;
     const now = new Date();
 
-    // ==========================================
-    // 1. BIỂU ĐỒ ĐƯỜNG: THỐNG KÊ 6 THÁNG GẦN NHẤT
-    // ==========================================
+    
     const performanceData = [];
     for (let i = 5; i >= 0; i--) {
       // Lấy ngày đầu và cuối của từng tháng

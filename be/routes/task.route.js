@@ -1,6 +1,6 @@
 // be/routes/task.route.js
 import express from 'express';
-import { createTask, getTasksByProject, updateTask, deleteTask, getGlobalTasks, addTaskComment, toggleTaskTimer, getTaskStatistics, getRecentActivities, getWorkLogs } from '../controllers/task.controller.js';
+import { createTask, getTasksByProject, updateTask, deleteTask, getGlobalTasks, addTaskComment, toggleTaskTimer, getTaskStatistics, getRecentActivities, getWorkLogs, getPerformanceData } from '../controllers/task.controller.js';
 import { authToken } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();

@@ -249,3 +249,96 @@ export const getWorkLogs = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+//performance
+// be/controllers/task.controller.js
+
+export const getPerformanceData = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const now = new Date();
+
+    // ==========================================
+    // 1. BIỂU ĐỒ ĐƯỜNG: THỐNG KÊ 6 THÁNG GẦN NHẤT
+    // ==========================================
+    const performanceData = [];
+    for (let i = 5; i >= 0; i--) {
+      // Lấy ngày đầu và cuối của từng tháng
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      
+      const monthName = startOfMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+      // Achieved: Số task ĐÃ HOÀN THÀNH trong tháng đó
+      const achieved = await Task.countDocuments({
+        $or: [{ assignee: userId }, { creator: userId }],
+        status: "Done",
+        updatedAt: { $gte: startOfMonth, $lt: endOfMonth }
+      });
+
+      // Target: Tạm tính bằng số task MỚI ĐƯỢC TẠO/GIAO trong tháng đó
+      // (Nếu không có task nào, mặc định target = 5 để biểu đồ không bị bẹp dúm)
+      const assigned = await Task.countDocuments({
+        $or: [{ assignee: userId }, { creator: userId }],
+        createdAt: { $gte: startOfMonth, $lt: endOfMonth }
+      });
+      const target = assigned === 0 ? 5 : assigned;
+
+      performanceData.push({ name: monthName, achieved, target });
+    }
+
+    // ==========================================
+    // 2. BIỂU ĐỒ TRÒN: THỜI GIAN THEO DỰ ÁN
+    // ==========================================
+    const tasksWithTime = await Task.find({
+      $or: [{ assignee: userId }, { creator: userId }],
+      timeSpent: { $gt: 0 }
+    }).populate('project', 'name');
+
+    const projectTimeMap = {};
+    tasksWithTime.forEach(t => {
+      if (!t.project) return;
+      const pName = t.project.name;
+      if (!projectTimeMap[pName]) projectTimeMap[pName] = 0;
+      projectTimeMap[pName] += t.timeSpent;
+    });
+
+    const colors = ['#FF4D4F', '#36A2EB', '#FFCE56', '#8BC34A', '#FF9800', '#9C27B0'];
+    const workLogData = Object.keys(projectTimeMap).map((key, index) => ({
+      name: key,
+      // Đổi từ giây (s) sang giờ (h)
+      value: parseFloat((projectTimeMap[key] / 3600).toFixed(2)), 
+      color: colors[index % colors.length]
+    }));
+
+    // ==========================================
+    // 3. INSIGHTS: CÁC TASK CẦN CHÚ Ý
+    // ==========================================
+    // Lấy 5 task chưa xong (Ưu tiên High hoặc chưa cập nhật lâu nhất)
+    const insights = await Task.find({
+      $or: [{ assignee: userId }, { creator: userId }],
+      status: { $ne: 'Done' }
+    })
+    .sort({ priority: -1, createdAt: 1 }) // High ưu tiên trước, Cũ ưu tiên trước
+    .limit(5)
+    .populate('creator', 'fullName avatar');
+
+    const recentTasks = insights.map(t => {
+      const daysAgo = Math.floor((now - new Date(t.createdAt)) / (1000 * 60 * 60 * 24));
+      return {
+        id: t._id.toString().slice(-6).toUpperCase(),
+        title: t.title,
+        author: t.creator?.fullName || "System",
+        avatar: t.creator?.avatar || `https://ui-avatars.com/api/?name=${t.creator?.fullName || 'U'}`,
+        daysAgo: daysAgo
+      };
+    });
+
+    // Trả toàn bộ data về Frontend
+    res.json({ performanceData, workLogData, recentTasks });
+
+  } catch (error) {
+    console.error("Lỗi lấy Performance Data:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

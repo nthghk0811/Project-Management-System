@@ -8,6 +8,7 @@ import Projects from './pages/Projects'
 import GlobalTasks from './pages/Task/GlobalTasks'
 import ProjectDetail from './pages/ProjectDetail'
 import WorkLogs from './pages/WorkLogs'
+import Performance from './pages/Performance'
 import Profile from './pages/Profile/Profile'
 
 
@@ -38,7 +39,7 @@ function AppRoutes() {
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/tasks" element={<ProtectedRoute><GlobalTasks /></ProtectedRoute>} />
           <Route path="/worklogs" element={<ProtectedRoute><WorkLogs /></ProtectedRoute>} />
-          {/* <Route path="/tasks/:taskId/subtasks" element={<ProtectedRoute><SubTasksPage /></ProtectedRoute>} /> */}
+          <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
         </Routes>
 
   );

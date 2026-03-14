@@ -340,3 +340,70 @@ export const getPerformanceData = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+// be/controllers/task.controller.js
+
+export const getTeamWorkload = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 1. Tìm các dự án của user
+    const myProjects = await Project.find({
+      $or: [{ owner: userId }, { members: userId }]
+    }).select('_id');
+    const projectIds = myProjects.map(p => p._id);
+
+    // 2. Lấy toàn bộ task trong các dự án đó và nối bảng User để lấy tên/avatar
+    const tasks = await Task.find({ project: { $in: projectIds } })
+      .populate('assignee', 'fullName avatar');
+
+    const totalTasks = tasks.length;
+    if (totalTasks === 0) return res.json([]);
+
+    // 3. Gom nhóm và đếm số task theo Assignee
+    const workloadMap = {};
+    let unassignedCount = 0;
+
+    tasks.forEach(task => {
+      if (!task.assignee) {
+        unassignedCount++;
+      } else {
+        const id = task.assignee._id.toString();
+        if (!workloadMap[id]) {
+          workloadMap[id] = {
+            user: task.assignee,
+            count: 0
+          };
+        }
+        workloadMap[id].count++;
+      }
+    });
+
+    // 4. Định dạng lại mảng trả về
+    const workloadData = Object.values(workloadMap).map(item => ({
+      assigneeName: item.user.fullName,
+      assigneeAvatar: item.user.avatar,
+      count: item.count,
+      percentage: Math.round((item.count / totalTasks) * 100)
+    }));
+
+    // Thêm nhóm "Unassigned" (Chưa giao cho ai) nếu có
+    if (unassignedCount > 0) {
+      workloadData.push({
+        assigneeName: "Unassigned",
+        assigneeAvatar: null,
+        count: unassignedCount,
+        percentage: Math.round((unassignedCount / totalTasks) * 100)
+      });
+    }
+
+    // Sắp xếp giảm dần theo số lượng task
+    workloadData.sort((a, b) => b.count - a.count);
+
+    res.json(workloadData);
+  } catch (error) {
+    console.error("Lỗi lấy Team Workload:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

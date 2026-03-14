@@ -6,11 +6,11 @@ import { logActivity } from "../utils/logger.js"; // BỔ SUNG IMPORT NÀY
 /* CREATE */
 export const createProject = async (req, res) => {
   try {
-    const { name, description, status, startDate, endDate } = req.body;
+    const { name, description, startDate, endDate } = req.body;
     const owner = req.user.id;
 
     const newProject = new Project({
-      name, description, owner, members: [owner], status, startDate, endDate,
+      name, description, owner, members: [owner], status: "planning", startDate, endDate,
     });
 
     await newProject.save();

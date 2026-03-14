@@ -17,6 +17,7 @@ export default function ProjectDetail() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState("medium");
+  const [newTaskAssignee, setNewTaskAssignee] = useState(""); // <-- BỔ SUNG: State cho Assignee
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editTitleValue, setEditTitleValue] = useState("");
   
@@ -56,18 +57,15 @@ export default function ProjectDetail() {
     return days === 0 ? "today" : `${days} days ago`;
   };
 
-  // Check if project is completed to disable actions
   const isProjectCompleted = project?.status === 'Completed' || project?.status === 'completed';
 
-  // =========================================================================
-  // ADVANCED: AUTO-START PROJECT
-  // =========================================================================
-  const autoStartProjectIfNeeded = async (newTaskStatus) => {
-    // If project is Planning and a task is moved to active/done columns
-    if (project?.status === 'Planning' && ['In Progress', 'In Review', 'Done'].includes(newTaskStatus)) {
+const autoStartProjectIfNeeded = async (newTaskStatus) => {
+    // Đưa status hiện tại về chữ thường hết để so sánh cho "chắc cốp"
+    const currentStatus = project?.status?.toLowerCase();
+    
+    if (currentStatus === 'planning' && ['In Progress', 'In Review', 'Done'].includes(newTaskStatus)) {
       try {
         await updateProjectApi(project._id, { status: 'In Progress' });
-        // Update local state for immediate UI reflection
         setProject(prev => ({ ...prev, status: 'In Progress' }));
       } catch (error) {
         console.error("Failed to auto-update project status", error);
@@ -80,16 +78,27 @@ export default function ProjectDetail() {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
 
+    // Chuẩn bị dữ liệu gửi lên Backend
+    const payload = {
+      title: newTaskTitle,
+      projectId: id,
+      status: 'To Do', 
+      priority: newTaskPriority, 
+      startDate: new Date(), 
+    };
+
+    // Nếu có chọn người làm thì mới gửi assignee lên
+    if (newTaskAssignee) {
+      payload.assignee = newTaskAssignee;
+    }
+
     try {
-      await createTaskApi({
-        title: newTaskTitle,
-        projectId: id,
-        status: 'To Do', 
-        priority: newTaskPriority, 
-        startDate: new Date(), 
-      });
+      await createTaskApi(payload);
+      
+      // Reset form
       setNewTaskTitle("");
       setNewTaskPriority("medium"); 
+      setNewTaskAssignee(""); // Reset Assignee
       setShowTaskModal(false);
       fetchData(); 
     } catch (error) {
@@ -136,13 +145,11 @@ export default function ProjectDetail() {
       }
   };
 
-  // === HANDLE PROJECT STATUS CHANGE ===
   const handleStatusSelect = (newStatus) => {
     setIsStatusMenuOpen(false);
     if (newStatus === project.status || (newStatus === 'Completed' && isProjectCompleted)) return;
 
     if (newStatus === 'Completed') {
-      // Check for incomplete tasks
       const hasIncompleteTasks = tasks.some(t => t.status !== 'Done');
       if (hasIncompleteTasks) {
         alert("⚠️ Cannot complete project!\nAll tasks must be moved to 'Done' before the project can be marked as complete.");
@@ -196,12 +203,10 @@ export default function ProjectDetail() {
   const calculateTotalTimeSpent = () => {
     let totalSeconds = 0;
     tasks.forEach(task => {
-      // Only calculate time for completed tasks with both start and end dates
       if (task.status === 'Done' && task.startDate && task.endDate) {
         const start = new Date(task.startDate);
         const end = new Date(task.endDate);
         const diffInSeconds = Math.floor((end.getTime() - start.getTime()) / 1000);
-        // Ensure non-negative value
         if (diffInSeconds > 0) totalSeconds += diffInSeconds;
       }
     });
@@ -217,7 +222,6 @@ export default function ProjectDetail() {
           const start = new Date(task.startDate);
           const end = new Date(task.endDate);
           const diffInSeconds = Math.floor((end.getTime() - start.getTime()) / 1000);
-          
           if (diffInSeconds > 0) {
               const h = Math.floor(diffInSeconds / 3600).toString().padStart(2, '0');
               const m = Math.floor((diffInSeconds % 3600) / 60).toString().padStart(2, '0');
@@ -290,7 +294,7 @@ export default function ProjectDetail() {
                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                   {formatTaskTimeSpent(task)}
                 </div>
-                <img className="h-8 w-8 rounded-full object-cover border border-slate-200 shadow-sm" src={task.assignee?.avatar || `https://ui-avatars.com/api/?name=${task.assignee?.fullName || 'User'}`} alt="Assignee" title={task.assignee?.fullName || "Unassigned"} />
+                <img className="h-8 w-8 rounded-full object-cover border border-slate-200 shadow-sm" src={task.assignee?.avatar || `https://ui-avatars.com/api/?name=${task.assignee?.fullName || 'Unassigned'}`} alt="Assignee" title={task.assignee?.fullName || "Unassigned"} />
                 <button onClick={() => { setEditingTaskId(task._id); setEditTitleValue(task.title); }} className="text-slate-400 hover:text-blue-500 transition" title="Edit Task">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                 </button>
@@ -331,12 +335,11 @@ export default function ProjectDetail() {
                       <div className="flex items-center space-x-2">
                         <input type="checkbox" checked={task.status === "Done"} onChange={() => handleStatusChange(task._id, task.status === "Done" ? "To Do" : "Done")} className="w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" />
                       </div>
-                      <img className="h-6 w-6 rounded-full object-cover border border-slate-200" src={task.assignee?.avatar || `https://ui-avatars.com/api/?name=${task.assignee?.fullName || "User"}`} alt="Assignee" />
+                      <img className="h-6 w-6 rounded-full object-cover border border-slate-200" src={task.assignee?.avatar || `https://ui-avatars.com/api/?name=${task.assignee?.fullName || "Unassigned"}`} alt="Assignee" title={task.assignee?.fullName || "Unassigned"} />
                     </div>
                   </div>
                 ))}
                 
-                {/* Hide Create Task button in 'To Do' if project is completed */}
                 {col === "To Do" && !isProjectCompleted && (
                   <button onClick={() => setShowTaskModal(true)} className="flex items-center justify-center py-2 mt-2 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition">
                     <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
@@ -373,7 +376,7 @@ export default function ProjectDetail() {
                 <h1 className="text-3xl font-bold text-slate-800 tracking-tight">{project.name}</h1>
                 <div className="flex -space-x-2 overflow-hidden items-center ml-2">
                   {project.members?.slice(0, 3).map((member, idx) => (
-                    <img key={idx} className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" src={member.avatar || `https://ui-avatars.com/api/?name=${member.fullName}`} alt="Avatar"/>
+                    <img key={idx} className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" src={member.avatar || `https://ui-avatars.com/api/?name=${member.fullName}`} alt="Avatar" title={member.fullName}/>
                   ))}
                   {project.members?.length > 3 && (
                      <div className="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-white bg-red-100 text-red-500 text-xs font-bold">
@@ -485,18 +488,38 @@ export default function ProjectDetail() {
                      required
                    />
                 </div>
-                <div className="mb-6">
-                   <label className="block text-sm font-semibold text-slate-700 mb-2">Priority</label>
-                   <select 
-                     className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
-                     value={newTaskPriority}
-                     onChange={(e) => setNewTaskPriority(e.target.value)}
-                   >
-                       <option value="low">Low</option>
-                       <option value="medium">Medium</option>
-                       <option value="high">High</option>
-                   </select>
+                
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                       <label className="block text-sm font-semibold text-slate-700 mb-2">Priority</label>
+                       <select 
+                         className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+                         value={newTaskPriority}
+                         onChange={(e) => setNewTaskPriority(e.target.value)}
+                       >
+                           <option value="low">Low</option>
+                           <option value="medium">Medium</option>
+                           <option value="high">High</option>
+                       </select>
+                    </div>
+                    <div>
+                       {/* TRƯỜNG ASSIGNEE MỚI THÊM VÀO ĐÂY */}
+                       <label className="block text-sm font-semibold text-slate-700 mb-2">Assignee</label>
+                       <select 
+                         className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+                         value={newTaskAssignee}
+                         onChange={(e) => setNewTaskAssignee(e.target.value)}
+                       >
+                           <option value="">Unassigned</option>
+                           {project?.members?.map(member => (
+                             <option key={member._id} value={member._id}>
+                               {member.fullName}
+                             </option>
+                           ))}
+                       </select>
+                    </div>
                 </div>
+
                 <div className="flex justify-end space-x-3">
                    <button type="button" onClick={() => setShowTaskModal(false)} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">
                      Cancel

@@ -1,6 +1,6 @@
 // be/routes/task.route.js
 import express from 'express';
-import { createTask, getTasksByProject, updateTask, deleteTask, getGlobalTasks, addTaskComment, toggleTaskTimer, getTaskStatistics, getRecentActivities, getWorkLogs, getPerformanceData } from '../controllers/task.controller.js';
+import { createTask, getTasksByProject, updateTask, deleteTask, getGlobalTasks, addTaskComment, toggleTaskTimer, getTaskStatistics, getRecentActivities, getWorkLogs, getPerformanceData, getTeamWorkload } from '../controllers/task.controller.js';
 import { authToken } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -15,6 +15,7 @@ router.get('/statistics', authToken, getTaskStatistics);
 router.get('/activities', authToken, getRecentActivities);
 router.get('/worklogs', authToken, getWorkLogs);
 router.get('/performance', authToken, getPerformanceData);
+router.get('/workload', authToken, getTeamWorkload);
 
 router.post('/:id/comments', authToken, addTaskComment);
 router.put('/:id/timer', authToken, toggleTaskTimer);

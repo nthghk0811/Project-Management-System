@@ -16,7 +16,6 @@ export default function Projects() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  // Lấy ID user - BẠN HÃY CHECK LẠI XEM "user" CÓ ĐÚNG KEY TRONG LOCALSTORAGE KHÔNG NHÉ
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = user._id || user.id; 
 
@@ -28,7 +27,7 @@ export default function Projects() {
         : await getDiscoverProjectsApi();
       setProjects(res.data);
     } catch (error) {
-      console.error("Lỗi khi fetch projects", error);
+      console.error("Error fetching projects", error);
     } finally {
       setIsLoading(false);
     }
@@ -43,39 +42,36 @@ export default function Projects() {
   const handleJoin = async (projectId) => {
     try {
       await joinProjectApi(projectId);
-      alert("Tham gia dự án thành công!");
+      alert("Successfully joined the project!");
       setActiveTab('my-projects');
     } catch (error) {
       console.error(error);
-      alert("Không thể tham gia dự án.");
+      alert("Failed to join the project.");
     }
   };
 
-  // --- HÀM GỘP CHUNG XỬ LÝ LEAVE / DELETE ---
   const handleAction = async (project) => {
     const ownerId = project.owner?._id || project.owner;
     const isOwner = String(ownerId) === String(currentUserId);
 
     if (isOwner) {
-      // Dành cho Owner
-      const confirmMessage = "Bạn là người tạo dự án này. Nếu bạn rời đi, toàn bộ dự án sẽ bị xóa vĩnh viễn. Bạn có chắc chắn muốn tiếp tục?";
+      const confirmMessage = "You are the owner of this project. If you leave, the entire project will be permanently deleted. Are you sure you want to proceed?";
       if (!window.confirm(confirmMessage)) return;
       
       try {
         await deleteProjectApi(project._id); 
         setProjects(prev => prev.filter(p => p._id !== project._id));
       } catch (error) {
-        alert(error.response?.data?.message || "Lỗi khi xóa dự án.");
+        alert(error.response?.data?.message || "Error deleting project.");
       }
     } else {
-      // Dành cho Member
-      if (!window.confirm("Bạn có chắc chắn muốn rời khỏi dự án này?")) return;
+      if (!window.confirm("Are you sure you want to leave this project?")) return;
       
       try {
         await leaveProjectApi(project._id);
         setProjects(prev => prev.filter(p => p._id !== project._id));
       } catch (error) {
-        alert(error.response?.data?.message || "Lỗi khi rời dự án.");
+        alert(error.response?.data?.message || "Error leaving project.");
       }
     }
   };
@@ -95,7 +91,6 @@ export default function Projects() {
         
         <div className="flex-1 p-8 overflow-y-auto">
           <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-            {/* ... Giữ nguyên phần Header, Search, Tabs ... */}
              <div>
               <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Projects Management</h1>
               <div className="flex space-x-6 mt-4 border-b border-slate-200">
@@ -123,15 +118,15 @@ export default function Projects() {
                 className="px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64 shadow-sm"
               />
               <button onClick={() => setOpenModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-sm font-semibold text-sm whitespace-nowrap">
-                + New Project
+                + Create project
               </button>
             </div>
           </div>
 
           {isLoading ? (
-             <div className="text-center py-12 text-slate-500">Loading...</div>
+             <div className="text-center py-12 text-slate-500">Loading projects...</div>
           ) : currentProjects.length === 0 ? (
-             <div className="text-center py-12 text-slate-500">Không tìm thấy dự án nào.</div>
+             <div className="text-center py-12 text-slate-500">No projects found.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {currentProjects.map((p) => (
@@ -141,14 +136,12 @@ export default function Projects() {
                   activeTab={activeTab}
                   currentUserId={currentUserId}
                   onJoin={() => handleJoin(p._id)}
-                  // Gọi chung 1 hàm handleAction
                   onAction={() => handleAction(p)} 
                 />
               ))}
             </div>
           )}
 
-          {/* ... Giữ nguyên phần Phân trang ... */}
           {totalPages > 1 && (
             <div className="flex justify-center items-center mt-10 space-x-2 text-sm text-gray-500">
               <button 

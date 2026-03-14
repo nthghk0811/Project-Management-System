@@ -7,26 +7,29 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as BarTooltip
 } from "recharts";
 import { formatDistanceToNow } from "date-fns";
-import { getTaskStatisticsApi, getRecentActivitiesApi } from "../api/taskApi";
+import { getTaskStatisticsApi, getRecentActivitiesApi, getTeamWorkloadApi } from "../api/taskApi";
 
 export default function Dashboard() {
   const [statusData, setStatusData] = useState([]);
   const [priorityData, setPriorityData] = useState([]);
   const [activities, setActivities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [workloadData, setWorkloadData] = useState([]);
 
   const fetchData = async () => {
     try {
       setIsLoading(true);
 
-      const [statsRes, activitiesRes] = await Promise.all([
+      const [statsRes, activitiesRes, workloadRes] = await Promise.all([
         getTaskStatisticsApi(),
-        getRecentActivitiesApi()
+        getRecentActivitiesApi(),
+        getTeamWorkloadApi()
       ]);
 
       setStatusData(statsRes.data.statusStats);
       setPriorityData(statsRes.data.priorityStats);
       setActivities(activitiesRes.data);
+      setWorkloadData(workloadRes.data);
     } catch (error) {
       console.error("Lỗi khi tải dữ liệu Dashboard:", error);
     } finally {
@@ -232,9 +235,67 @@ export default function Dashboard() {
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col h-[400px]">
                 <h2 className="font-bold text-slate-800 text-lg mb-2">Team Workload</h2>
 
-                <div className="flex-1 flex items-center justify-center text-slate-400 text-sm border-2 border-dashed border-slate-100 rounded-lg">
-                  Workload chart coming soon...
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col h-[400px]">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h2 className="font-bold text-slate-800 text-lg">Team workload</h2>
+                    <p className="text-xs text-slate-500 mt-1">Monitor the capacity of your team.</p>
+                  </div>
                 </div>
+
+                {/* Table Header */}
+                <div className="flex justify-between text-[11px] font-bold text-slate-500 mt-6 mb-3">
+                  <span className="w-1/3">Assignee</span>
+                  <span className="w-2/3">Work distribution</span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                  {workloadData.length === 0 ? (
+                     <div className="text-center text-slate-400 text-sm mt-10">No tasks assigned yet.</div>
+                  ) : (
+                    workloadData.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between group">
+                        
+                        {/* Cột Assignee */}
+                        <div className="w-1/3 flex items-center space-x-2">
+                          {item.assigneeName === "Unassigned" ? (
+                            <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 flex-shrink-0">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                            </div>
+                          ) : (
+                            <img 
+                              src={item.assigneeAvatar || `https://ui-avatars.com/api/?name=${item.assigneeName}`} 
+                              alt="Avatar" 
+                              className="w-6 h-6 rounded-full object-cover border border-slate-200 flex-shrink-0"
+                            />
+                          )}
+                          <span className="text-sm font-semibold text-slate-700 truncate" title={item.assigneeName}>
+                            {item.assigneeName}
+                          </span>
+                        </div>
+
+                        {/* Cột Progress Bar màu xám Jira */}
+                        <div className="w-2/3 flex items-center pl-2">
+                          <div 
+                            className="bg-[#8993a4] h-5 rounded-sm flex items-center px-2 min-w-[30px] transition-all relative group cursor-default"
+                            style={{ width: `${item.percentage}%` }}
+                          >
+                            <span className="text-[10px] font-bold text-white leading-none whitespace-nowrap overflow-hidden">
+                              {item.percentage}%
+                            </span>
+                            
+                            {/* Tooltip khi hover vào thanh màu xám */}
+                            <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-800 text-white text-[11px] font-semibold py-1 px-2 rounded whitespace-nowrap z-10 pointer-events-none">
+                              {item.percentage}% ({item.count} work items)
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
               </div>
 
             </div>

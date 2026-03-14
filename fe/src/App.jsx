@@ -10,6 +10,7 @@ import ProjectDetail from './pages/ProjectDetail'
 import WorkLogs from './pages/WorkLogs'
 import Performance from './pages/Performance'
 import Profile from './pages/Profile/Profile'
+import Settings from './pages/Settings'
 
 
 import ProtectedRoute from './components/ProtectedRoute'
@@ -40,6 +41,7 @@ function AppRoutes() {
           <Route path="/tasks" element={<ProtectedRoute><GlobalTasks /></ProtectedRoute>} />
           <Route path="/worklogs" element={<ProtectedRoute><WorkLogs /></ProtectedRoute>} />
           <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         </Routes>
 
   );

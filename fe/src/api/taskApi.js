@@ -80,3 +80,11 @@ export const getPerformanceDataApi = () => {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
+
+// fe/src/api/taskApi.js
+export const getTeamWorkloadApi = () => {
+  const token = localStorage.getItem("token");
+  return axios.get(`${API}/workload`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};

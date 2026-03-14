@@ -1,27 +1,24 @@
 // be/controllers/task.controller.js
 import Task from "../models/Task.js";
 import Project from "../models/Project.js";
+import Activity from "../models/Activity.js"; // BỔ SUNG MODEL NÀY
+import { logActivity } from "../utils/logger.js";
 
 // Tạo task mới
 export const createTask = async (req, res) => {
   try {
     const { title, projectId, assignee, status, priority, startDate, endDate, timeSpent, parentTask } = req.body;
-    const creator = req.user.id; // Lấy từ middleware auth
+    const creator = req.user.id;
 
     const newTask = new Task({
-      title,
-      project: projectId,
-      creator,
-      assignee,
-      status,
-      priority,
-      startDate,
-      endDate,
-      timeSpent,
-      parentTask
+      title, project: projectId, creator, assignee, status, priority, startDate, endDate, timeSpent, parentTask
     });
 
     await newTask.save();
+    
+    // === GHI LOG: TẠO TASK ===
+    await logActivity(creator, "created task", title);
+    
     res.status(201).json(newTask);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -35,7 +32,7 @@ export const getTasksByProject = async (req, res) => {
     const tasks = await Task.find({ project: projectId })
       .populate("creator", "fullName avatar")
       .populate("assignee", "fullName avatar")
-      .sort({ createdAt: -1 }); // Mới nhất lên đầu
+      .sort({ createdAt: -1 });
 
     res.json(tasks);
   } catch (err) {
@@ -43,13 +40,19 @@ export const getTasksByProject = async (req, res) => {
   }
 };
 
+// Xóa Task (Có thể xóa nhiều task cùng lúc)
 export const deleteTask = async (req, res) => {
   try {
-    // Read the 'ids' property sent from frontend
     const taskIds = req.body.ids; 
     
     if (!taskIds || !Array.isArray(taskIds)) {
        return res.status(400).json({ message: "Invalid task IDs provided."});
+    }
+
+    // === GHI LOG: TRƯỚC KHI XÓA PHẢI LẤY TÊN TASK ĐỂ GHI LOG ===
+    const tasksToDelete = await Task.find({ _id: { $in: taskIds } });
+    for (const task of tasksToDelete) {
+      await logActivity(req.user.id, "deleted task", task.title);
     }
 
     const result = await Task.deleteMany({ _id: { $in: taskIds } });
@@ -59,17 +62,27 @@ export const deleteTask = async (req, res) => {
   }
 };
 
+// Cập nhật Task
 export const updateTask = async (req, res) => {
   try {
-    // Sửa ở đây: Lấy id hoặc taskId tùy thuộc vào cách bạn khai báo route
     const taskId = req.params.taskId || req.params.id; 
     const updates = req.body;
     
-    if (!taskId) {
-        return res.status(400).json({ message: "Task ID is required" });
-    }
+    if (!taskId) return res.status(400).json({ message: "Task ID is required" });
+
+    // Lấy task cũ để so sánh xem user đã thay đổi cái gì
+    const oldTask = await Task.findById(taskId);
 
     const updatedTask = await Task.findByIdAndUpdate(taskId, updates, { new: true });
+    
+    // === GHI LOG THÔNG MINH: CHỈ GHI NHỮNG GÌ BỊ THAY ĐỔI ===
+    if (updates.status && updates.status !== oldTask.status) {
+      await logActivity(req.user.id, `moved to ${updates.status}`, updatedTask.title);
+    }
+    if (updates.priority && updates.priority !== oldTask.priority) {
+      await logActivity(req.user.id, `changed priority to ${updates.priority} on`, updatedTask.title);
+    }
+
     res.json(updatedTask);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -79,16 +92,10 @@ export const updateTask = async (req, res) => {
 // Lấy tất cả task của user (Global Tasks)
 export const getGlobalTasks = async (req, res) => {
   try {
-
     const userId = req.user.id;
-    
-    // Tìm danh sách ID các dự án mà user là owner hoặc member
-    const myProjects = await Project.find({
-      $or: [{ owner: userId }, { members: userId }]
-    }).select('_id');
+    const myProjects = await Project.find({ $or: [{ owner: userId }, { members: userId }] }).select('_id');
     const projectIds = myProjects.map(p => p._id);
 
-    // Lấy tất cả task nằm trong các dự án đó
     const tasks = await Task.find({ project: { $in: projectIds } })
       .populate("project", "name") 
       .populate("creator", "fullName avatar")
@@ -102,10 +109,10 @@ export const getGlobalTasks = async (req, res) => {
   }
 };
 
-
+// Bình luận Task
 export const addTaskComment = async (req, res) => {
   try {
-    const { id } = req.params; // ID của task
+    const { id } = req.params;
     const { text } = req.body;
     const userId = req.user.id;
 
@@ -117,186 +124,128 @@ export const addTaskComment = async (req, res) => {
       { new: true }
     ).populate("comments.user", "fullName avatar");
 
+    // === GHI LOG: BÌNH LUẬN ===
+    await logActivity(userId, "commented on task", task.title);
+
     res.json(task);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
+// Hẹn giờ Timer
 export const toggleTaskTimer = async (req, res) => {
   try {
     const { id } = req.params;
     const task = await Task.findById(id);
     
-    if (!task) {
-      return res.status(404).json({ message: "Task not found" });
-    }
+    if (!task) return res.status(404).json({ message: "Task not found" });
 
     let updateData = {};
-
     if (task.isRunning) {
-      // Đang chạy -> Bấm Dừng (Pause)
-      // Bảo vệ trường hợp timerStartedAt bị null do lỗi data cũ
       const startedAt = task.timerStartedAt ? new Date(task.timerStartedAt).getTime() : Date.now();
       const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
-      
       updateData = {
         isRunning: false,
         timerStartedAt: null,
-        // (task.timeSpent || 0) để chống lỗi NaN nếu timeSpent chưa tồn tại
         timeSpent: (task.timeSpent || 0) + Math.max(0, elapsedSeconds) 
       };
+      // === GHI LOG: DỪNG TIMER ===
+      await logActivity(req.user.id, "stopped tracking time on", task.title);
     } else {
-      // Đang dừng -> Bấm Chạy (Play)
-      updateData = {
-        isRunning: true,
-        timerStartedAt: new Date()
-      };
+      updateData = { isRunning: true, timerStartedAt: new Date() };
+      // === GHI LOG: CHẠY TIMER ===
+      await logActivity(req.user.id, "started tracking time on", task.title);
     }
 
-    // Dùng findByIdAndUpdate thay cho .save() để tránh lỗi validation của các trường cũ không liên quan
     const updatedTask = await Task.findByIdAndUpdate(id, updateData, { new: true });
-    
     res.json(updatedTask);
   } catch (error) {
-    console.error("Lỗi tại toggleTaskTimer:", error); // In ra console để dễ debug
     res.status(500).json({ message: error.message });
   }
 };
 
-
-//dashboard
-// be/controllers/task.controller.js
-
-export const getTaskStatistics = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    // 1. Tìm các dự án mà user tham gia
-    const myProjects = await Project.find({
-      $or: [{ owner: userId }, { members: userId }]
-    }).select('_id');
-    const projectIds = myProjects.map(p => p._id);
-
-    // 2. Lấy toàn bộ task trong các dự án đó
-    const tasks = await Task.find({ project: { $in: projectIds } });
-
-    // 3. Khởi tạo bộ đếm
-    const statusCount = { "To Do": 0, "In Progress": 0, "In Review": 0, "Done": 0 };
-    const priorityCount = { "high": 0, "medium": 0, "low": 0 };
-
-    // 4. Lặp qua từng task và cộng dồn
-    tasks.forEach(task => {
-      if (statusCount[task.status] !== undefined) statusCount[task.status]++;
-      if (priorityCount[task.priority] !== undefined) priorityCount[task.priority]++;
-    });
-
-    // 5. Trả về format đúng như Recharts cần (kèm mã màu Jira)
-    res.json({
-      statusStats: [
-        { name: "Done", value: statusCount["Done"], color: "#36b37e" },        // Xanh lá
-        { name: "In Progress", value: statusCount["In Progress"], color: "#0052cc" }, // Xanh dương
-        { name: "In Review", value: statusCount["In Review"], color: "#ffab00" },     // Vàng
-        { name: "To Do", value: statusCount["To Do"], color: "#42526e" }        // Xám đậm
-      ],
-      priorityStats: [
-        { name: "High", value: priorityCount["high"], color: "#ff5630" },       // Đỏ
-        { name: "Medium", value: priorityCount["medium"], color: "#ffab00" },     // Cam/Vàng
-        { name: "Low", value: priorityCount["low"], color: "#36b37e" }         // Xanh lá
-      ]
-    });
-
-  } catch (error) {
-    console.error("Lỗi thống kê task:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// be/controllers/task.controller.js
-
+// === HÀM GET RECENT ACTIVITIES (ĐÃ ĐƯỢC VIẾT LẠI HOÀN TOÀN CHUẨN XÁC) ===
 export const getRecentActivities = async (req, res) => {
   try {
-    const userId = req.user.id;
-    
-    // 1. Tìm các dự án mà user tham gia
-    const myProjects = await Project.find({
-      $or: [{ owner: userId }, { members: userId }]
-    }).select('_id');
-    const projectIds = myProjects.map(p => p._id);
+    // Truy vấn thẳng vào bảng Activity Log
+    const activities = await Activity.find({ user: req.user.id })
+      .sort({ createdAt: -1 }) // Lấy mới nhất
+      .limit(15) // Giới hạn 15 hành động
+      .populate('user', 'fullName avatar');
 
-    // 2. Lấy 10 task được cập nhật (hoặc tạo) gần đây nhất
-    const recentTasks = await Task.find({ project: { $in: projectIds } })
-      .sort({ updatedAt: -1 }) // Sắp xếp theo thời gian cập nhật giảm dần (mới nhất lên đầu)
-      .limit(10)
-      .populate('creator', 'fullName avatar');
+    // Format lại dữ liệu cho giống với lúc trước Frontend gọi
+    const formattedActivities = activities.map(act => ({
+      _id: act._id,
+      user: act.user,
+      action: act.action,
+      taskTitle: act.targetName,
+      timestamp: act.createdAt
+    }));
 
-    // 3. Biến đổi dữ liệu thành dạng lịch sử hoạt động (Activity Log)
-    const activities = recentTasks.map(task => {
-      // Nếu thời gian tạo và cập nhật giống nhau -> Task mới được tạo
-      // Nếu khác nhau -> Task vừa được chỉnh sửa
-      const isNew = task.createdAt.getTime() === task.updatedAt.getTime();
-      
-      return {
-        _id: task._id,
-        user: task.creator,
-        action: isNew ? "created task" : "updated task",
-        taskTitle: task.title,
-        taskStatus: task.status,
-        timestamp: task.updatedAt
-      };
-    });
-
-    res.json(activities);
+    res.json(formattedActivities);
   } catch (error) {
     console.error("Lỗi lấy activities:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-
-// be/controllers/task.controller.js
-
-export const getWorkLogs = async (req, res) => {
+// Dashboard - Statistics
+export const getTaskStatistics = async (req, res) => {
+   // ... Giữ nguyên như cũ của bạn
   try {
     const userId = req.user.id;
-    
-    // 1. Tìm các dự án của user
-    const myProjects = await Project.find({
-      $or: [{ owner: userId }, { members: userId }]
-    }).select('_id');
+    const myProjects = await Project.find({ $or: [{ owner: userId }, { members: userId }] }).select('_id');
     const projectIds = myProjects.map(p => p._id);
+    const tasks = await Task.find({ project: { $in: projectIds } });
 
-    // 2. Tìm TẤT CẢ các task có thời gian đã log (timeSpent > 0)
-    const tasksWithTime = await Task.find({ 
-      project: { $in: projectIds },
-      timeSpent: { $gt: 0 } 
-    }).sort({ updatedAt: -1 });
+    const statusCount = { "To Do": 0, "In Progress": 0, "In Review": 0, "Done": 0 };
+    const priorityCount = { "high": 0, "medium": 0, "low": 0 };
 
-    // 3. Tính tổng thời gian (theo giây)
+    tasks.forEach(task => {
+      if (statusCount[task.status] !== undefined) statusCount[task.status]++;
+      if (priorityCount[task.priority] !== undefined) priorityCount[task.priority]++;
+    });
+
+    res.json({
+      statusStats: [
+        { name: "Done", value: statusCount["Done"], color: "#36b37e" },
+        { name: "In Progress", value: statusCount["In Progress"], color: "#0052cc" },
+        { name: "In Review", value: statusCount["In Review"], color: "#ffab00" },
+        { name: "To Do", value: statusCount["To Do"], color: "#42526e" }
+      ],
+      priorityStats: [
+        { name: "High", value: priorityCount["high"], color: "#ff5630" },
+        { name: "Medium", value: priorityCount["medium"], color: "#ffab00" },
+        { name: "Low", value: priorityCount["low"], color: "#36b37e" }
+      ]
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// WorkLogs
+export const getWorkLogs = async (req, res) => {
+  // ... Giữ nguyên như cũ của bạn
+  try {
+    const userId = req.user.id;
+    const myProjects = await Project.find({ $or: [{ owner: userId }, { members: userId }] }).select('_id');
+    const projectIds = myProjects.map(p => p._id);
+    const tasksWithTime = await Task.find({ project: { $in: projectIds }, timeSpent: { $gt: 0 } }).sort({ updatedAt: -1 });
+
     const totalSeconds = tasksWithTime.reduce((sum, task) => sum + task.timeSpent, 0);
-
-    // 4. Lấy 10 task gần nhất để vẽ biểu đồ ngang (Bar Chart)
     const recentLogs = tasksWithTime.slice(0, 10).map(task => {
-      // Format ngày dạng: 05 Nov 2026
-      const dateStr = new Date(task.updatedAt).toLocaleDateString('en-GB', { 
-        day: '2-digit', month: 'short', year: 'numeric' 
-      });
-      
+      const dateStr = new Date(task.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       return {
         id: task._id,
         taskInfo: `${dateStr}||${task.title}`,
-        // Quy đổi giây sang Giờ (Hours) làm tròn 2 chữ số thập phân để vẽ biểu đồ
         timeValue: parseFloat((task.timeSpent / 3600).toFixed(2)) 
       };
     });
 
-    res.json({
-      totalSeconds,
-      workLogData: recentLogs
-    });
-
+    res.json({ totalSeconds, workLogData: recentLogs });
   } catch (error) {
-    console.error("Lỗi lấy Work Logs:", error);
     res.status(500).json({ message: error.message });
   }
 };

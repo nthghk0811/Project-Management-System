@@ -91,7 +91,7 @@ export default function WorkLogs() {
               <div className="xl:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-100 p-8 flex flex-col min-h-[600px]">
                 {workLogData.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center text-slate-400">
-                    Chưa có công việc nào được ghi nhận thời gian. Hãy bấm Play Timer ở một Task bất kỳ nhé!
+                    No time recorded for any work.
                   </div>
                 ) : (
                   <div className="flex-1 w-full relative">

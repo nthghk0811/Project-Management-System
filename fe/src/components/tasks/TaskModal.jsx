@@ -104,6 +104,15 @@ export default function TaskModal({ task, allTasks = [], onClose, onRefresh }) {
     }
   };
 
+  const handleUpdatePriority = async (newPriority) => {
+    try {
+      await updateTaskApi(task._id, { priority: newPriority });
+      onRefresh();
+    } catch (error) {
+      alert("Không thể cập nhật độ ưu tiên.");
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex justify-center items-center p-4">
       <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-fade-in-up">
@@ -141,6 +150,23 @@ export default function TaskModal({ task, allTasks = [], onClose, onRefresh }) {
               </button>
             </div>
           </div>
+
+          <div className="flex flex-col">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Độ ưu tiên</label>
+              <select 
+                value={task.priority || "medium"} 
+                onChange={(e) => handleUpdatePriority(e.target.value)}
+                className={`border text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-40 p-2 cursor-pointer outline-none shadow-sm font-semibold
+                  ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-200' : 
+                    task.priority === 'low' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 
+                    'bg-orange-50 text-orange-600 border-orange-200'}
+                `}
+              >
+                <option value="low" className="text-emerald-600">Low</option>
+                <option value="medium" className="text-orange-600">Medium</option>
+                <option value="high" className="text-red-600">High</option>
+              </select>
+            </div>
 
           <div className="mb-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <div className="flex justify-between items-end mb-4">

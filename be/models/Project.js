@@ -7,33 +7,38 @@ const projectSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
     description: {
       type: String,
       default: "",
     },
-
-    // người tạo project
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-
-    // danh sách thành viên
     members: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
-
+    // BỔ SUNG: Hàng đợi chờ Admin duyệt
+    pendingJoinRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    pendingLeaveRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     status: {
       type: String,
-      enum: ["planning", "active", "completed"],
-      default: "planning",
+      default: "planning", 
     },
-
     startDate: Date,
     endDate: Date,
   },

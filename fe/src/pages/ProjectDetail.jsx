@@ -60,7 +60,7 @@ export default function ProjectDetail() {
   const isProjectCompleted = project?.status === 'Completed' || project?.status === 'completed';
 
 const autoStartProjectIfNeeded = async (newTaskStatus) => {
-    // Đưa status hiện tại về chữ thường hết để so sánh cho "chắc cốp"
+    
     const currentStatus = project?.status?.toLowerCase();
     
     if (currentStatus === 'planning' && ['In Progress', 'In Review', 'Done'].includes(newTaskStatus)) {

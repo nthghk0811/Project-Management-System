@@ -1,14 +1,13 @@
 // fe/src/pages/Projects.jsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
-import CreateProjectModal from "../components/projects/CreateProjectModal";
 import ProjectCard from "../components/projects/ProjectCard";
 import { getMyProjectsApi, getDiscoverProjectsApi, joinProjectApi, deleteProjectApi, leaveProjectApi } from "../api/projectApi";
 
 export default function Projects() {
   const [projects, setProjects] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
   const [activeTab, setActiveTab] = useState('my-projects'); 
@@ -16,8 +15,14 @@ export default function Projects() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  const navigate = useNavigate();
+
+  // Lấy thông tin user hiện tại
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = user._id || user.id; 
+  
+  // Xác định quyền Leader/Admin
+  const isLeader = user.role === "Leader" || user.role === "Admin";
 
   const fetchProjects = async () => {
     try {
@@ -39,22 +44,28 @@ export default function Projects() {
     setSearchQuery("");
   }, [activeTab]);
 
+  // Xử lý xin tham gia dự án (Send Join Request)
   const handleJoin = async (projectId) => {
     try {
+      // TẠM THỜI vẫn gọi API join cũ, nhưng ta đổi thông báo UI.
+      // Sắp tới Backend sẽ cần đổi API này thành "createJoinRequest"
       await joinProjectApi(projectId);
-      alert("Successfully joined the project!");
-      setActiveTab('my-projects');
+      alert("Join request sent to the Admin! Please wait for approval.");
+      // Tạm thời ẩn reload để người dùng biết là đang chờ duyệt
+      // setActiveTab('my-projects'); 
     } catch (error) {
       console.error(error);
-      alert("Failed to join the project.");
+      alert("Failed to send join request.");
     }
   };
 
+  // Xử lý xin rời / xóa dự án
   const handleAction = async (project) => {
     const ownerId = project.owner?._id || project.owner;
     const isOwner = String(ownerId) === String(currentUserId);
 
     if (isOwner) {
+      // Dành cho Admin/Owner: Có quyền xóa luôn
       const confirmMessage = "You are the owner of this project. If you leave, the entire project will be permanently deleted. Are you sure you want to proceed?";
       if (!window.confirm(confirmMessage)) return;
       
@@ -65,13 +76,16 @@ export default function Projects() {
         alert(error.response?.data?.message || "Error deleting project.");
       }
     } else {
-      if (!window.confirm("Are you sure you want to leave this project?")) return;
+      // Dành cho Member: Gửi yêu cầu xin rời dự án
+      if (!window.confirm("Are you sure you want to request to leave this project? The Admin must approve this action.")) return;
       
       try {
+        // TẠM THỜI vẫn gọi API leave cũ.
+        // Sắp tới Backend cần đổi thành "createLeaveRequest"
         await leaveProjectApi(project._id);
-        setProjects(prev => prev.filter(p => p._id !== project._id));
+        alert("Leave request sent to the Admin. Please continue your tasks until approved.");
       } catch (error) {
-        alert(error.response?.data?.message || "Error leaving project.");
+        alert(error.response?.data?.message || "Error sending leave request.");
       }
     }
   };
@@ -117,9 +131,16 @@ export default function Projects() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64 shadow-sm"
               />
-              <button onClick={() => setOpenModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-sm font-semibold text-sm whitespace-nowrap">
-                + Create project
-              </button>
+              
+              {/* CHỈ RENDER NÚT CREATE NẾU LÀ LEADER/ADMIN */}
+              {isLeader && (
+                <button 
+                  onClick={() => navigate('/admin/projects/create')} 
+                  className="bg-[#0b57d0] text-white px-6 py-2 rounded-lg hover:bg-blue-800 shadow-sm font-semibold text-sm whitespace-nowrap"
+                >
+                  Create project
+                </button>
+              )}
             </div>
           </div>
 
@@ -174,7 +195,6 @@ export default function Projects() {
           )}
         </div>
       </div>
-      <CreateProjectModal open={openModal} onClose={() => setOpenModal(false)} onCreated={fetchProjects} />
     </div>
   );
 }

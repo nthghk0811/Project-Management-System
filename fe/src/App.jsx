@@ -12,6 +12,13 @@ import Performance from './pages/Performance'
 import Profile from './pages/Profile/Profile'
 import Settings from './pages/Settings'
 
+//admin import page
+import AdminLogin from './pages/admin/AdminLogin'
+import AdminApproval from './pages/admin/AdminApproval'
+import AdminCreateProject from './pages/admin/AdminCreateProject'
+import AdminDashboard from './pages/admin/AdminDashboard'
+
+
 
 import ProtectedRoute from './components/ProtectedRoute'
 import '../index.css'
@@ -42,6 +49,12 @@ function AppRoutes() {
           <Route path="/worklogs" element={<ProtectedRoute><WorkLogs /></ProtectedRoute>} />
           <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+
+          //admin routes
+          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/projects/create" element={<ProtectedRoute><AdminCreateProject /></ProtectedRoute>} />
         </Routes>
 
   );

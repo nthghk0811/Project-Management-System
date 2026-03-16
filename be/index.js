@@ -7,6 +7,7 @@ import projectRoute from './routes/project.route.js';
 import userRoute from './routes/user.route.js'
 import taskRoute from './routes/task.route.js';
 
+
 dotenv.config();
 const PORT = process.env.PORT;
 const app = express();
@@ -21,6 +22,9 @@ app.use('/api/users', userRoute)
 app.use('/api/tasks', taskRoute);
 
 await mongoose.connect(process.env.MONGO_URI);
+
+
+
 app.get('/', (req, res) => {
     res.send('Hello World!');
 });

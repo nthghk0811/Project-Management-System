@@ -2,6 +2,56 @@ import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+
+//admin
+export const adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // 1. Kiểm tra user có tồn tại không
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid email or password." });
+    }
+
+    // 2. Kiểm tra mật khẩu
+    const isMatch = bcrypt.compareSync(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid email or password." });
+    }
+
+    // 3. KIỂM TRA QUYỀN
+    if (user.role !== "admin" && user.role !== "Leader") {
+      return res.status(403).json({ 
+        message: "Access denied. You do not have administrator privileges." 
+      });
+    }
+
+    // 4. Tạo token
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET || "fallback_secret_key", // Nhớ thay bằng secret thật của bạn
+      { expiresIn: "1d" }
+    );
+
+    // Trả về thông tin
+    res.json({
+      token,
+      user: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+      },
+    });
+  } catch (error) {
+    console.error("Admin Login Error:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+
 export const register = async (req, res) => {
   try {
     const { email, password, fullName } = req.body;

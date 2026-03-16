@@ -11,3 +11,4 @@ export const getMeApi = (token) =>
     headers: { Authorization: `Bearer ${token}` },
   });
 
+export const adminLoginApi = (data) => API.post("/auth/admin/login", data);

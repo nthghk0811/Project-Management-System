@@ -6,6 +6,8 @@ import authRoute from './routes/auth.route.js';
 import projectRoute from './routes/project.route.js';
 import userRoute from './routes/user.route.js'
 import taskRoute from './routes/task.route.js';
+import searchRoute from './routes/search.route.js';
+import notificationRoute from './routes/notification.route.js';
 
 
 dotenv.config();
@@ -20,6 +22,8 @@ app.use('/api/auth', authRoute)
 app.use('/api/projects', projectRoute)
 app.use('/api/users', userRoute)
 app.use('/api/tasks', taskRoute);
+app.use('/api/search', searchRoute)
+app.use('/api/notifications', notificationRoute)
 
 await mongoose.connect(process.env.MONGO_URI);
 

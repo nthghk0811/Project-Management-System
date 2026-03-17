@@ -28,6 +28,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    jobTitle: {
+      type: String,
+      default: "",},
+
+    skills: {
+      type: [String],
+      default: [],
+    },
 
     role: {
       type: String,

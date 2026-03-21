@@ -12,3 +12,11 @@ export const getMeApi = (token) =>
   });
 
 export const adminLoginApi = (data) => API.post("/auth/admin/login", data);
+
+export const getAllUsersApi = () => {
+  const token = localStorage.getItem("token");
+  // Dùng instance API đã tạo, đường dẫn sẽ tự ghép thành http://localhost:8080/api/auth/users
+  return API.get("/auth/users", { 
+    headers: { Authorization: `Bearer ${token}` }
+  });
+};

@@ -4,23 +4,42 @@ import Task from "../models/Task.js";
 import { logActivity } from "../utils/logger.js"; // BỔ SUNG IMPORT NÀY
 
 /* CREATE */
+/* CREATE PROJECT */
 export const createProject = async (req, res) => {
   try {
-    const { name, description, startDate, endDate } = req.body;
+    const { name, description, startDate, endDate, type, members } = req.body;
     const owner = req.user.id;
 
+    // Đảm bảo Owner luôn nằm trong danh sách thành viên dự án
+    let projectMembers = [owner];
+    
+    // Nếu Admin có chọn thêm ai đó thì ghép mảng vào (lọc trùng lặp)
+    if (members && Array.isArray(members)) {
+      projectMembers = [...new Set([...projectMembers, ...members])];
+    }
+
+    // Gộp type vào description nếu Backend chưa có trường type riêng
+    
+
     const newProject = new Project({
-      name, description, owner, members: [owner], status: "planning", startDate, endDate,
+      name, 
+      type,
+      description, 
+      owner, 
+      members: projectMembers, 
+      status: "planning", 
+      startDate, 
+      endDate,
     });
 
     await newProject.save();
 
-    // === GHI LOG: TẠO PROJECT ===
     await logActivity(owner, "created project", name);
 
     res.status(201).json(newProject);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Create Project Error:", err);
+    res.status(500).json({ message: "Server error while creating project" });
   }
 };
 
@@ -81,74 +100,36 @@ export const getDiscoverProjects = async (req, res) => {
   }
 };
 
-// // 2. Tham gia dự án
-// export const joinProject = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const userId = req.user.id;
-
-//     const project = await Project.findByIdAndUpdate(
-//       id, { $addToSet: { members: userId } }, { new: true }
-//     );
-
-//     // === GHI LOG: JOIN PROJECT ===
-//     await logActivity(userId, "joined project", project.name);
-
-//     res.json({ message: "Joined successfully", project });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// 3. Rời dự án
-// export const leaveProject = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const userId = req.user.id;
-
-//     const project = await Project.findById(id);
-//     if (!project) return res.status(404).json({ message: "Project not found" });
-
-//     if (project.owner.toString() === userId) {
-//       // GHI LOG TRƯỚC KHI XÓA
-//       await logActivity(userId, "deleted project", project.name);
-
-//       await Project.findByIdAndDelete(id);
-//       return res.json({ message: "Vì bạn là Owner, dự án đã bị xóa hoàn toàn khi bạn rời đi.", action: "deleted" });
-//     }
-
-//     // GHI LOG RỜI DỰ ÁN
-//     await logActivity(userId, "left project", project.name);
-
-//     await Project.findByIdAndUpdate(id, { $pull: { members: userId } });
-//     res.json({ message: "Đã rời khỏi dự án thành công.", action: "left" });
-
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
 
 // 4. Xóa Project trực tiếp
 export const deleteProject = async (req, res) => {
   try {
-    const { id } = req.params;
+    const projectId = req.params.id;
     const userId = req.user.id;
-
-    const project = await Project.findById(id);
+    const userRole = req.user.role ? req.user.role.toLowerCase() : ""; 
+    // 1. Tìm dự án
+    const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    const ownerId = project.owner ? project.owner.toString() : null;
-    if (ownerId && ownerId !== userId) {
-      return res.status(403).json({ message: "Only the owner can delete this project" });
+    // 2. CHỐT CHẶN PHÂN QUYỀN (AUTHORIZATION)
+    const isOwner = project.owner.toString() === userId;
+    const isAdmin = userRole === "admin" || userRole === "leader";
+
+    // Nếu KHÔNG PHẢI chủ dự án VÀ CŨNG KHÔNG PHẢI Admin -> Đá văng ra ngoài!
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: "Access denied! Only the project owner or Admins can delete this project." });
     }
 
-    // === GHI LOG TRƯỚC KHI XÓA ===
-    await logActivity(userId, "deleted project", project.name);
+    // 3. Tiến hành xóa nếu thỏa mãn điều kiện
+    await Project.findByIdAndDelete(projectId);
+    
+    // Khuyến nghị: Xóa luôn các Task thuộc Project này cho sạch Database
+    await Task.deleteMany({ project: projectId }); 
 
-    await Project.findByIdAndDelete(id);
-    res.json({ message: "Project deleted successfully" });
+    res.status(200).json({ message: "Project deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Delete project error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -188,21 +169,39 @@ export const joinProject = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    
+    // ÉP VỀ CHỮ THƯỜNG ĐỂ KHÔNG BAO GIỜ BẮT TRƯỢT
+    const userRole = req.user.role ? req.user.role.toLowerCase() : ""; 
 
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    // Kiểm tra xem đã là member chưa
     if (project.members.includes(userId)) {
       return res.status(400).json({ message: "You are already a member of this project." });
     }
 
-    // Đẩy vào hàng đợi Join
+    // KIỂM TRA BẰNG CHỮ THƯỜNG
+    if (userRole === "admin" || userRole === "leader") {
+      await Project.findByIdAndUpdate(
+        id, 
+        { $addToSet: { members: userId } }, 
+        { new: true }
+      );
+      
+      return res.json({ 
+        message: "You are an Admin. Joined project instantly!",
+        isAdminJoin: true 
+      });
+    }
+
+    // ==== DÀNH CHO MEMBER ====
     await Project.findByIdAndUpdate(
-      id, { $addToSet: { pendingJoinRequests: userId } }, { new: true }
+      id, 
+      { $addToSet: { pendingJoinRequests: userId } }, 
+      { new: true }
     );
 
-    res.json({ message: "Join request sent to Admin successfully." });
+    res.json({ message: "Join request sent to Admin successfully.", isAdminJoin: false });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -232,6 +231,8 @@ export const leaveProject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
 
 
 // =========================================================

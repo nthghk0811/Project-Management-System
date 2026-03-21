@@ -55,8 +55,8 @@ export default function ProjectCard({ project, activeTab, currentUserId, isLeade
               <div className="fixed inset-0 z-20" onClick={(e) => { e.preventDefault(); setShowMenu(false); }}></div>
               <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 shadow-xl rounded-lg overflow-hidden py-1 z-30 animate-fade-in-up">
                 
-                {/* NÚT LEAVE (Chỉ hiện nếu không phải Owner) */}
-                {!isOwner && (
+                {/* NÚT LEAVE: Chỉ dành cho "Dân thường" (Không phải Owner, không phải Admin) */}
+                {(!isOwner && !isLeader) && (
                   <button 
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu(false); onAction('leave'); }}
                     className="w-full flex items-center px-4 py-2.5 text-sm font-semibold cursor-pointer transition text-amber-600 hover:bg-amber-50"
@@ -66,11 +66,11 @@ export default function ProjectCard({ project, activeTab, currentUserId, isLeade
                   </button>
                 )}
 
-                {/* NÚT DELETE (Chỉ Admin/Leader hoặc Owner mới thấy) */}
-                {canDelete && (
+                {/* NÚT DELETE: Quyền lực tối thượng cho Admin/Leader HOẶC Người tạo ra dự án */}
+                {(isOwner || isLeader) && (
                   <button 
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu(false); onAction('delete'); }}
-                    className="w-full flex items-center px-4 py-2.5 text-sm font-semibold cursor-pointer transition text-red-600 hover:bg-red-50"
+                    className="w-full flex items-center px-4 py-2.5 text-sm font-bold cursor-pointer transition text-red-600 hover:bg-red-50"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     Delete Project
@@ -90,8 +90,13 @@ export default function ProjectCard({ project, activeTab, currentUserId, isLeade
             {projectInitial}
           </div>
           <div>
-            <h3 className="font-bold text-[16px] text-slate-800 leading-tight group-hover:text-blue-700 transition-colors line-clamp-1">{project.name}</h3>
-            <p className="text-[11px] font-semibold text-slate-500 mt-0.5">Software project</p>
+            <h3 className="font-bold text-[16px] text-slate-800 leading-tight group-hover:text-blue-700 transition-colors line-clamp-1">
+              {project.name}
+            </h3>
+          
+            <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
+              {project.type || "Software Project"}
+            </p>
           </div>
         </div>
 

@@ -21,7 +21,12 @@ const projectSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
+
     ],
+    type: {
+    type: String,
+    default: "Software Development"
+  },
     // BỔ SUNG: Hàng đợi chờ Admin duyệt
     pendingJoinRequests: [
       {

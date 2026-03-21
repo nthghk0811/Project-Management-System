@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { globalSearchApi } from "../../api/searchApi";
-import { getNotificationsApi, markNotificationReadApi } from "../../api/notificationApi"; // Import API
+import { getNotificationsApi, markNotificationReadApi } from "../../api/notificationApi"; 
 import Logo from "../../assets/Icon.png";
 import { formatDistanceToNow } from "date-fns";
 
@@ -29,7 +29,8 @@ export default function Header() {
   const [notifications, setNotifications] = useState([]);
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  // Lấy thông báo khi load trang
+  const isLeader = localUser?.role === "Admin" || localUser?.role === "Leader" || localUser?.role?.toLowerCase() === "admin";
+
   useEffect(() => {
     fetchNotifications();
   }, []);
@@ -43,7 +44,6 @@ export default function Header() {
     }
   };
 
-  // Đánh dấu đã đọc
   const handleReadNoti = async (id, isRead) => {
     if (isRead) return;
     try {
@@ -54,7 +54,6 @@ export default function Header() {
     }
   };
 
-  // GỌI API TÌM KIẾM (Có đính kèm Filters)
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -64,8 +63,6 @@ export default function Header() {
     setIsSearching(true);
     const delayDebounceFn = setTimeout(async () => {
       try {
-        // Cập nhật hàm gọi API (Cần sửa lại searchApi.js để nhận thêm tham số nếu bạn muốn, 
-        // hoặc ghép thẳng params vào URL)
         const statusParam = filterStatus.join(",");
         const res = await globalSearchApi(`${searchQuery}&time=${filterTime}&status=${statusParam}`);
         setSearchResults(res.data);
@@ -77,9 +74,8 @@ export default function Header() {
     }, 400); 
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, filterTime, filterStatus]); // <-- Cứ đổi chữ, đổi Filter là tự search lại
+  }, [searchQuery, filterTime, filterStatus]); 
 
-  // CẬP NHẬT USER TỪ LOCALSTORAGE
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     if (storedUser) setLocalUser(storedUser);
@@ -91,7 +87,6 @@ export default function Header() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // ĐÓNG POPUP
   useEffect(() => {
     function handleClickOutside(event) {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -130,9 +125,12 @@ export default function Header() {
       
       {/* 1. LOGO */}
       <div className="flex items-center w-64">
-        <Link to="/dashboard" className="flex items-center hover:opacity-80 transition">
-          <img src={Logo} alt="Logo" className="h-12" />
-          {/* <span className="ml-3 font-extrabold text-xl tracking-tight text-[#1B2559]">AProjectO</span> */}
+        {/* ĐỔI LOGIC LINK TẠI ĐÂY */}
+        <Link 
+          to={isLeader ? "/admin/dashboard" : "/dashboard"} 
+          className="flex items-center hover:opacity-80 transition"
+        >
+          <img src={Logo} alt="Logo" className="h-10" />
         </Link>
       </div>
 
@@ -254,7 +252,7 @@ export default function Header() {
       {/* 3. MENU PHẢI (Chuông & Avatar) */}
       <div className="flex items-center space-x-6 relative">
         
-        {/* NÚT CHUÔNG THÔNG BÁO THẬT */}
+        {/* NÚT CHUÔNG THÔNG BÁO */}
         <div>
           <button 
             onClick={() => { setOpenNoti(!openNoti); setOpenUser(false); setIsSearchOpen(false); }}
@@ -321,6 +319,14 @@ export default function Header() {
               <div className="py-2">
                 <Link to="/profile" onClick={() => setOpenUser(false)} className="flex items-center px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition">Public Profile</Link>
                 <Link to="/settings" onClick={() => setOpenUser(false)} className="flex items-center px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition">Personal Settings</Link>
+                
+                {/* HIỂN THỊ LINK TỚI ADMIN PORTAL NẾU LÀ ADMIN */}
+                {isLeader && (
+                  <Link to="/admin/dashboard" onClick={() => setOpenUser(false)} className="flex items-center px-5 py-2.5 text-sm font-bold text-emerald-600 hover:bg-emerald-50 transition">
+                    <svg className="w-4 h-4 mr-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Admin Portal
+                  </Link>
+                )}
               </div>
               <div className="border-t border-slate-100 py-2">
                 <button onClick={handleLogout} className="w-full flex items-center px-5 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition">Log out</button>

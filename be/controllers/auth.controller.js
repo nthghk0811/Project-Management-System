@@ -123,4 +123,20 @@ export const getMe = async (req, res) => {
   res.json(req.user);
 };
 
+// be/controllers/auth.controller.js
+
+// ... (Các hàm login, register, getMe giữ nguyên) ...
+
+// THÊM HÀM NÀY VÀO DƯỚI CÙNG:
+export const getAllUsers = async (req, res) => {
+  try {
+    // Tìm tất cả user đang active, chỉ lấy ra các trường cần thiết để bảo mật
+    const users = await User.find({ isActive: true }).select('fullName email avatar role');
+    res.json(users);
+  } catch (error) {
+    console.error("Get All Users Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 

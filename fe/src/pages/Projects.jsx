@@ -10,6 +10,18 @@ export default function Projects() {
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
+  // ==== STATE TOAST MESSAGE ====
+  const [toast, setToast] = useState("");
+
+  // ==== STATE CUSTOM CONFIRM MODAL (Thay thế window.confirm) ====
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    actionType: null, // 'delete' or 'leave'
+    project: null,
+    title: "",
+    message: ""
+  });
+
   const [activeTab, setActiveTab] = useState('my-projects'); 
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -20,6 +32,11 @@ export default function Projects() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = user._id || user.id; 
   const isLeader = user.role === "Leader" || user.role === "Admin" || user.role?.toLowerCase() === "admin";
+
+  const showToast = (message) => {
+    setToast(message);
+    setTimeout(() => setToast(""), 3000); 
+  };
 
   const fetchProjects = async () => {
     try {
@@ -43,33 +60,55 @@ export default function Projects() {
 
   const handleJoin = async (projectId) => {
     try {
-      await joinProjectApi(projectId);
-      alert("Join request sent to the Admin! Please wait for approval.");
+      const res = await joinProjectApi(projectId);
+      showToast(res.data?.message || "Action successful!");
+      fetchProjects();
     } catch (error) {
       console.error(error);
-      alert("Failed to send join request.");
+      showToast(error.response?.data?.message || "Failed to send join request.");
     }
   };
 
-  const handleAction = async (project, actionType) => {
+  // 1. MỞ MODAL XÁC NHẬN (Thay vì dùng window.confirm)
+  const handleActionClick = (project, actionType) => {
     if (actionType === 'delete') {
-      const confirmMessage = "This action will permanently delete the project and all its tasks. Are you sure you want to proceed?";
-      if (!window.confirm(confirmMessage)) return;
-      
+      setConfirmModal({
+        isOpen: true,
+        actionType: 'delete',
+        project: project,
+        title: "Delete Project?",
+        message: `This action will permanently delete "${project.name}" and all its tasks. Are you sure you want to proceed?`
+      });
+    } else if (actionType === 'leave') {
+      setConfirmModal({
+        isOpen: true,
+        actionType: 'leave',
+        project: project,
+        title: "Leave Project?",
+        message: `Are you sure you want to request to leave "${project.name}"? The Admin must approve this action.`
+      });
+    }
+  };
+
+  // 2. THỰC THI HÀNH ĐỘNG KHI BẤM "YES" Ở MODAL
+  const executeConfirmAction = async () => {
+    const { actionType, project } = confirmModal;
+    setConfirmModal({ ...confirmModal, isOpen: false }); // Đóng modal ngay lập tức
+
+    if (actionType === 'delete') {
       try {
         await deleteProjectApi(project._id); 
         setProjects(prev => prev.filter(p => p._id !== project._id));
+        showToast("Project deleted successfully!"); 
       } catch (error) {
-        alert(error.response?.data?.message || "Error deleting project.");
+        showToast(error.response?.data?.message || "Error deleting project."); 
       }
     } else if (actionType === 'leave') {
-      if (!window.confirm("Are you sure you want to request to leave this project? The Admin must approve this action.")) return;
-      
       try {
-        await leaveProjectApi(project._id);
-        alert("Leave request sent to the Admin. Please continue your tasks until approved.");
+        const res = await leaveProjectApi(project._id);
+        showToast(res.data?.message || "Leave request sent successfully."); 
       } catch (error) {
-        alert(error.response?.data?.message || "Error sending leave request.");
+        showToast(error.response?.data?.message || "Error sending leave request."); 
       }
     }
   };
@@ -82,19 +121,27 @@ export default function Projects() {
   const currentProjects = filteredProjects.slice(startIndex, startIndex + itemsPerPage);
 
   return (
-    <div className="bg-[#f4f7fe] min-h-screen font-sans flex flex-col">
+    <div className="bg-[#f4f7fe] min-h-screen font-sans flex flex-col relative">
       <Header />
+
+      {/* ==== GLOBAL TOAST NOTIFICATION ==== */}
+      {toast && (
+        <div className="fixed top-20 right-8 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-2xl z-[100] animate-fade-in-up font-semibold text-sm flex items-center">
+          <svg className="w-5 h-5 mr-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+          {toast}
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         
         <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
           
-          {/* HEADER SECTION (Chuẩn Jira) */}
+          {/* HEADER SECTION */}
           <div className="mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
              <div>
               <h1 className="text-2xl font-bold text-[#1B2559] tracking-tight">Projects</h1>
               
-              {/* TABS (Dạng Toggle Switch của SaaS) */}
               <div className="flex bg-slate-200/60 p-1 rounded-lg mt-4 w-fit border border-slate-200/50">
                 <button 
                   onClick={() => setActiveTab('my-projects')}
@@ -112,7 +159,6 @@ export default function Projects() {
             </div>
             
             <div className="flex items-center space-x-3">
-              {/* SEARCH INPUT CÓ ICON */}
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -161,7 +207,7 @@ export default function Projects() {
                   currentUserId={currentUserId}
                   isLeader={isLeader}
                   onJoin={() => handleJoin(p._id)}
-                  onAction={(actionType) => handleAction(p, actionType)}
+                  onAction={(actionType) => handleActionClick(p, actionType)} // Đổi sang gọi handleActionClick
                 />
               ))}
             </div>
@@ -200,6 +246,44 @@ export default function Projects() {
           )}
         </div>
       </div>
+
+      {/* ==== CUSTOM CONFIRM MODAL ==== */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-fade-in-up p-6 text-center border border-slate-100">
+            
+            {/* Icon thay đổi theo hành động (Đỏ cho Xóa, Cam cho Rời) */}
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner ${confirmModal.actionType === 'delete' ? 'bg-red-50 text-red-500' : 'bg-amber-50 text-amber-500'}`}>
+              {confirmModal.actionType === 'delete' ? (
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              ) : (
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+              )}
+            </div>
+            
+            <h3 className="text-xl font-bold text-slate-800 mb-2">{confirmModal.title}</h3>
+            <p className="text-sm text-slate-500 leading-relaxed mb-8 px-2">
+              {confirmModal.message}
+            </p>
+            
+            <div className="flex justify-center space-x-3">
+              <button 
+                onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} 
+                className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition w-full"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={executeConfirmAction} 
+                className={`px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition w-full active:scale-95 ${confirmModal.actionType === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+              >
+                {confirmModal.actionType === 'delete' ? 'Delete Project' : 'Request to Leave'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

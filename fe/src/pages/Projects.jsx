@@ -13,16 +13,13 @@ export default function Projects() {
   const [activeTab, setActiveTab] = useState('my-projects'); 
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 9; 
 
   const navigate = useNavigate();
 
-  // Lấy thông tin user hiện tại
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = user._id || user.id; 
-  
-  // Xác định quyền Leader/Admin
-  const isLeader = user.role === "Leader" || user.role === "Admin";
+  const isLeader = user.role === "Leader" || user.role === "Admin" || user.role?.toLowerCase() === "admin";
 
   const fetchProjects = async () => {
     try {
@@ -44,29 +41,19 @@ export default function Projects() {
     setSearchQuery("");
   }, [activeTab]);
 
-  // Xử lý xin tham gia dự án (Send Join Request)
   const handleJoin = async (projectId) => {
     try {
-      // TẠM THỜI vẫn gọi API join cũ, nhưng ta đổi thông báo UI.
-      // Sắp tới Backend sẽ cần đổi API này thành "createJoinRequest"
       await joinProjectApi(projectId);
       alert("Join request sent to the Admin! Please wait for approval.");
-      // Tạm thời ẩn reload để người dùng biết là đang chờ duyệt
-      // setActiveTab('my-projects'); 
     } catch (error) {
       console.error(error);
       alert("Failed to send join request.");
     }
   };
 
-  // Xử lý xin rời / xóa dự án
-  const handleAction = async (project) => {
-    const ownerId = project.owner?._id || project.owner;
-    const isOwner = String(ownerId) === String(currentUserId);
-
-    if (isOwner) {
-      // Dành cho Admin/Owner: Có quyền xóa luôn
-      const confirmMessage = "You are the owner of this project. If you leave, the entire project will be permanently deleted. Are you sure you want to proceed?";
+  const handleAction = async (project, actionType) => {
+    if (actionType === 'delete') {
+      const confirmMessage = "This action will permanently delete the project and all its tasks. Are you sure you want to proceed?";
       if (!window.confirm(confirmMessage)) return;
       
       try {
@@ -75,13 +62,10 @@ export default function Projects() {
       } catch (error) {
         alert(error.response?.data?.message || "Error deleting project.");
       }
-    } else {
-      // Dành cho Member: Gửi yêu cầu xin rời dự án
+    } else if (actionType === 'leave') {
       if (!window.confirm("Are you sure you want to request to leave this project? The Admin must approve this action.")) return;
       
       try {
-        // TẠM THỜI vẫn gọi API leave cũ.
-        // Sắp tới Backend cần đổi thành "createLeaveRequest"
         await leaveProjectApi(project._id);
         alert("Leave request sent to the Admin. Please continue your tasks until approved.");
       } catch (error) {
@@ -98,79 +82,100 @@ export default function Projects() {
   const currentProjects = filteredProjects.slice(startIndex, startIndex + itemsPerPage);
 
   return (
-    <div className="bg-slate-50 min-h-screen font-sans flex flex-col">
+    <div className="bg-[#f4f7fe] min-h-screen font-sans flex flex-col">
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         
-        <div className="flex-1 p-8 overflow-y-auto">
-          <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
+          
+          {/* HEADER SECTION (Chuẩn Jira) */}
+          <div className="mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
              <div>
-              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Projects Management</h1>
-              <div className="flex space-x-6 mt-4 border-b border-slate-200">
+              <h1 className="text-2xl font-bold text-[#1B2559] tracking-tight">Projects</h1>
+              
+              {/* TABS (Dạng Toggle Switch của SaaS) */}
+              <div className="flex bg-slate-200/60 p-1 rounded-lg mt-4 w-fit border border-slate-200/50">
                 <button 
                   onClick={() => setActiveTab('my-projects')}
-                  className={`pb-2 text-sm font-semibold transition ${activeTab === 'my-projects' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'my-projects' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   My Projects
                 </button>
                 <button 
                   onClick={() => setActiveTab('discover')}
-                  className={`pb-2 text-sm font-semibold transition ${activeTab === 'discover' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'discover' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                  Discover
+                  Discover All
                 </button>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <input
-                type="text"
-                placeholder="Search projects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64 shadow-sm"
-              />
+            <div className="flex items-center space-x-3">
+              {/* SEARCH INPUT CÓ ICON */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search projects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64 shadow-sm transition"
+                />
+              </div>
               
-              {/* CHỈ RENDER NÚT CREATE NẾU LÀ LEADER/ADMIN */}
               {isLeader && (
                 <button 
                   onClick={() => navigate('/admin/projects/create')} 
-                  className="bg-[#0b57d0] text-white px-6 py-2 rounded-lg hover:bg-blue-800 shadow-sm font-semibold text-sm whitespace-nowrap"
+                  className="bg-[#0b57d0] text-white px-5 py-2 rounded-lg hover:bg-blue-700 shadow-sm font-bold text-sm flex items-center whitespace-nowrap transition active:scale-95"
                 >
+                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                   Create project
                 </button>
               )}
             </div>
           </div>
 
+          {/* PROJECT LIST */}
           {isLoading ? (
-             <div className="text-center py-12 text-slate-500">Loading projects...</div>
+             <div className="flex justify-center items-center h-64">
+               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+             </div>
           ) : currentProjects.length === 0 ? (
-             <div className="text-center py-12 text-slate-500">No projects found.</div>
+             <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
+               <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                 <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+               </div>
+               <h3 className="text-lg font-bold text-slate-800">No projects found</h3>
+               <p className="text-sm text-slate-500 mt-1">Try adjusting your search or filters.</p>
+             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {currentProjects.map((p) => (
                 <ProjectCard 
                   key={p._id} 
                   project={p} 
                   activeTab={activeTab}
                   currentUserId={currentUserId}
+                  isLeader={isLeader}
                   onJoin={() => handleJoin(p._id)}
-                  onAction={() => handleAction(p)} 
+                  onAction={(actionType) => handleAction(p, actionType)}
                 />
               ))}
             </div>
           )}
 
+          {/* PAGINATION */}
           {totalPages > 1 && (
-            <div className="flex justify-center items-center mt-10 space-x-2 text-sm text-gray-500">
+            <div className="flex justify-center items-center mt-10 space-x-1">
               <button 
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className={`px-3 py-1 rounded-md transition ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:text-black hover:bg-gray-100 cursor-pointer'}`}
+                className={`p-2 rounded-lg transition ${currentPage === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'}`}
               >
-                Previous
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
               </button>
               {[...Array(totalPages)].map((_, index) => {
                 const pageNum = index + 1;
@@ -178,7 +183,7 @@ export default function Projects() {
                   <button 
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`px-3 py-1 rounded-md transition ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold transition ${currentPage === pageNum ? 'bg-[#0b57d0] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'}`}
                   >
                     {pageNum}
                   </button>
@@ -187,9 +192,9 @@ export default function Projects() {
               <button 
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className={`px-3 py-1 rounded-md transition ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:text-black hover:bg-gray-100 cursor-pointer'}`}
+                className={`p-2 rounded-lg transition ${currentPage === totalPages ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'}`}
               >
-                Next
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
               </button>
             </div>
           )}

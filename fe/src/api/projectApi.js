@@ -64,3 +64,39 @@ export const updateProjectApi = (id, data) => {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
+
+
+export const getPendingRequestsApi = (projectId) => {
+  const token = localStorage.getItem("token");
+  return axios.get(`${API}/${projectId}/pending-requests`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const approveJoinRequestApi = (projectId, userId) => {
+  const token = localStorage.getItem("token");
+  return axios.post(`${API}/${projectId}/approve-join/${userId}`, {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const rejectJoinRequestApi = (projectId, userId) => {
+  const token = localStorage.getItem("token");
+  return axios.post(`${API}/${projectId}/reject-join/${userId}`, {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const approveLeaveRequestApi = (projectId, userId) => {
+  const token = localStorage.getItem("token");
+  return axios.post(`${API}/${projectId}/approve-leave/${userId}`, {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const rejectLeaveRequestApi = (projectId, userId) => {
+  const token = localStorage.getItem("token");
+  return axios.post(`${API}/${projectId}/reject-leave/${userId}`, {}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};

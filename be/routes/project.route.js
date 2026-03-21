@@ -11,7 +11,8 @@ import {
   approveJoinRequest,
   rejectJoinRequest,
   approveLeaveRequest,
-  rejectLeaveRequest
+  rejectLeaveRequest,
+  getPendingRequests
 
 } from "../controllers/project.controller.js";
 import { authToken, adminAuth } from "../middlewares/auth.middleware.js";
@@ -28,6 +29,7 @@ router.post("/:id/approve-join/:userId", authToken, adminAuth, approveJoinReques
 router.post("/:id/reject-join/:userId", authToken, adminAuth, rejectJoinRequest);
 router.post("/:id/approve-leave/:userId", authToken, adminAuth, approveLeaveRequest);
 router.post("/:id/reject-leave/:userId", authToken, adminAuth, rejectLeaveRequest);
+router.get("/:id/pending-requests", authToken, adminAuth, getPendingRequests);
 
 router.post("/", authToken, createProject);
 router.get("/", authToken, getMyProjects);

@@ -55,6 +55,7 @@ function AppRoutes() {
           <Route path="/admin" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/projects/create" element={<ProtectedRoute><AdminCreateProject /></ProtectedRoute>} />
+          <Route path="/admin/approval" element={<ProtectedRoute><AdminApproval /></ProtectedRoute>} />
         </Routes>
 
   );

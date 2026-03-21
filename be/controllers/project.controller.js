@@ -308,3 +308,25 @@ export const rejectLeaveRequest = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+// be/controllers/project.controller.js
+
+export const getPendingRequests = async (req, res) => {
+  try {
+    const { id } = req.params; // Lấy ID của project
+    const project = await Project.findById(id)
+      .populate('pendingJoinRequests', 'fullName avatar')
+      .populate('pendingLeaveRequests', 'fullName avatar');
+
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    // Trả về thẳng object chứa 2 mảng user
+    res.json({
+      pendingJoinRequests: project.pendingJoinRequests,
+      pendingLeaveRequests: project.pendingLeaveRequests
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

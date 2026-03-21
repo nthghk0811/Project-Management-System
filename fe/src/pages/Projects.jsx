@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 import ProjectCard from "../components/projects/ProjectCard";
-import { getMyProjectsApi, getDiscoverProjectsApi, joinProjectApi, deleteProjectApi, leaveProjectApi } from "../api/projectApi";
+import { getMyProjectsApi, getDiscoverProjectsApi, joinProjectApi, deleteProjectApi, leaveProjectApi, updateProjectApi } from "../api/projectApi";
 
 export default function Projects() {
   const [projects, setProjects] = useState([]);
@@ -22,6 +22,11 @@ export default function Projects() {
     message: ""
   });
 
+  const [editModal, setEditModal] = useState({ isOpen: false, project: null });
+  const [editFormData, setEditFormData] = useState({
+    name: "", type: "", description: "", startDate: "", endDate: ""
+  });
+
   const [activeTab, setActiveTab] = useState('my-projects'); 
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,6 +37,8 @@ export default function Projects() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = user._id || user.id; 
   const isLeader = user.role === "Leader" || user.role === "Admin" || user.role?.toLowerCase() === "admin";
+
+  
 
   const showToast = (message) => {
     setToast(message);
@@ -71,7 +78,17 @@ export default function Projects() {
 
   // 1. MỞ MODAL XÁC NHẬN (Thay vì dùng window.confirm)
   const handleActionClick = (project, actionType) => {
-    if (actionType === 'delete') {
+    if (actionType === 'edit') {
+      // Đổ dữ liệu cũ vào form. (Cắt chuỗi 'T' để gắn vừa vào thẻ <input type="date">)
+      setEditFormData({
+        name: project.name || "",
+        type: project.type || "",
+        description: project.description || "",
+        startDate: project.startDate ? project.startDate.split('T')[0] : "",
+        endDate: project.endDate ? project.endDate.split('T')[0] : ""
+      });
+      setEditModal({ isOpen: true, project });
+    } else if (actionType === 'delete') {
       setConfirmModal({
         isOpen: true,
         actionType: 'delete',
@@ -87,6 +104,20 @@ export default function Projects() {
         title: "Leave Project?",
         message: `Are you sure you want to request to leave "${project.name}"? The Admin must approve this action.`
       });
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editFormData.name) return showToast("Project Title is required!", "error");
+    
+    try {
+      await updateProjectApi(editModal.project._id, editFormData);
+      showToast("Project updated successfully!");
+      setEditModal({ isOpen: false, project: null });
+      fetchProjects(); // Tải lại danh sách
+    } catch (error) {
+      showToast("Error updating project.", "error");
     }
   };
 
@@ -280,6 +311,65 @@ export default function Projects() {
                 {confirmModal.actionType === 'delete' ? 'Delete Project' : 'Request to Leave'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==== EDIT PROJECT MODAL ==== */}
+      {editModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-fade-in-up">
+            
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-xl font-bold text-[#1B2559] flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                Edit Project
+              </h3>
+              <button onClick={() => setEditModal({ isOpen: false, project: null })} className="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-lg transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Project Title</label>
+                    <input type="text" required value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-sm font-bold text-slate-800" />
+                  </div>
+                  <div>
+                    <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Project Type</label>
+                    <select value={editFormData.type} onChange={(e) => setEditFormData({...editFormData, type: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-sm font-bold text-slate-700 cursor-pointer">
+                      <option value="">-- Select Type --</option>
+                      <option value="Software Development">Software Development</option>
+                      <option value="Marketing Campaign">Marketing Campaign</option>
+                      <option value="Internal Operations">Internal Operations</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Start Date</label>
+                    <input type="date" value={editFormData.startDate} onChange={(e) => setEditFormData({...editFormData, startDate: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm font-bold text-slate-700" />
+                  </div>
+                  <div>
+                    <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">End Date</label>
+                    <input type="date" value={editFormData.endDate} onChange={(e) => setEditFormData({...editFormData, endDate: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm font-bold text-slate-700" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Description</label>
+                <textarea rows="3" value={editFormData.description} onChange={(e) => setEditFormData({...editFormData, description: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm font-medium text-slate-700 resize-none"></textarea>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
+                <button type="button" onClick={() => setEditModal({ isOpen: false, project: null })} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+                <button type="submit" className="px-6 py-2.5 rounded-xl text-sm font-bold bg-[#0b57d0] text-white hover:bg-blue-700 shadow-sm transition active:scale-95">Save Changes</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -139,20 +139,25 @@ export const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    const userRole = req.user.role ? req.user.role.toLowerCase() : "";
     const updateData = req.body;
 
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    // Chỉ Owner mới được phép đổi trạng thái dự án
-    if (project.owner.toString() !== userId) {
-      return res.status(403).json({ message: "Only the owner can update this project" });
+    // Cấp quyền cho Owner VÀ Admin/Leader
+    const isOwner = project.owner.toString() === userId;
+    const isAdmin = userRole === "admin" || userRole === "leader";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: "Access denied. Only the owner or Admin can update this project." });
     }
 
     const updatedProject = await Project.findByIdAndUpdate(id, updateData, { new: true });
 
-    // === GHI LOG KHI ĐỔI TRẠNG THÁI ===
+    // Ghi log nếu có đổi status
     if (updateData.status && updateData.status !== project.status) {
+      // Nhớ import logActivity nếu chưa có
       await logActivity(userId, `changed project status to ${updateData.status}`, project.name);
     }
 

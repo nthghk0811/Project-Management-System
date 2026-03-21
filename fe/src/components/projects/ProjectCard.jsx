@@ -77,6 +77,17 @@ export default function ProjectCard({ project, activeTab, currentUserId, isLeade
                   </button>
                 )}
 
+                {/* NÚT EDIT: Chỉ Admin/Leader hoặc Owner mới thấy */}
+                {canDelete && (
+                  <button 
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu(false); onAction('edit'); }}
+                    className="w-full flex items-center px-4 py-2.5 text-sm font-bold cursor-pointer transition text-blue-600 hover:bg-blue-50 border-b border-slate-100"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    Edit Project
+                  </button>
+                )}
+
               </div>
             </>
           )}

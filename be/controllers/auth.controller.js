@@ -1,12 +1,18 @@
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { validationResult } from 'express-validator';
 
 
 //admin
 export const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    // Trả về lỗi đầu tiên trong mảng để Frontend in ra Toast cho đẹp
+    return res.status(400).json({ message: errors.array()[0].msg });
+  }
 
     // 1. Kiểm tra user có tồn tại không
     const user = await User.findOne({ email });
@@ -55,6 +61,11 @@ export const adminLogin = async (req, res) => {
 export const register = async (req, res) => {
   try {
     const { email, password, fullName } = req.body;
+    const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    // Trả về lỗi đầu tiên trong mảng để Frontend in ra Toast cho đẹp
+    return res.status(400).json({ message: errors.array()[0].msg });
+  }
     
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -73,10 +84,12 @@ export const register = async (req, res) => {
       password: hash,
       fullName,
     });
+    
 
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
     await newUser.save();
+
 
     res.status(201).json({ message: 'User registered successfully', data: {
         id: newUser._id,
@@ -92,6 +105,11 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
     try{
         const { email, password, fullName } = req.body;
+        const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    // Trả về lỗi đầu tiên trong mảng để Frontend in ra Toast cho đẹp
+    return res.status(400).json({ message: errors.array()[0].msg });
+  }
 
         const user = await User.findOne({ email });
         if (!user) {

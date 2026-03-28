@@ -1,17 +1,21 @@
 // fe/src/pages/ProjectDetail.jsx
-import { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
-import { getProjectByIdApi, updateProjectApi } from "../api/projectApi";
+import { getProjectByIdApi, updateProjectApi, uploadProjectResourceApi } from "../api/projectApi"; // THÊM API UPLOAD
 import { getTasksByProjectApi, createTaskApi, deleteTaskApi, updateTaskApi } from "../api/taskApi"; 
 
 export default function ProjectDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]); 
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState("kanban"); // "kanban" or "list"
+  
+  // THÊM VIEW MODE 'resources'
+  const [viewMode, setViewMode] = useState("kanban"); // 
 
   // Modal and Editing States
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -24,6 +28,14 @@ export default function ProjectDetail() {
   // Dropdown and Complete Modal States
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+
+  // ==== STATES CHO UPLOAD RESOURCES ====
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // CHECK QUYỀN LEADER/ADMIN
+  // const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const isLeader = user?.role?.toLowerCase() === "admin" || project?.leader === user?._id || project?.leader?._id === user?._id;
 
   const fetchData = async () => {
     try {
@@ -51,6 +63,22 @@ export default function ProjectDetail() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); 
   };
 
+  // HÀM ÉP TẢI FILE VỀ MÁY (Tránh bị Cloudinary block PDF/ZIP)
+  const getDownloadUrl = (url, type) => {
+    if (!url) return "#";
+    // Nếu là ảnh thì cứ mở bình thường trên tab mới
+    if (type === 'image') return url; 
+    
+    // Nếu là tài liệu, chèn cờ fl_attachment vào URL
+    if (url.includes('/image/upload/')) {
+      return url.replace('/image/upload/', '/image/upload/fl_attachment/');
+    }
+    if (url.includes('/raw/upload/')) {
+      return url.replace('/raw/upload/', '/raw/upload/fl_attachment/');
+    }
+    return url;
+  };
+
   const getDaysAgo = (dateString) => {
     if (!dateString) return "";
     const days = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24));
@@ -60,6 +88,7 @@ export default function ProjectDetail() {
   const isProjectCompleted = project?.status === 'Completed' || project?.status === 'completed';
 
   const autoStartProjectIfNeeded = async (newTaskStatus) => {
+    if (!isLeader) return;
     const currentStatus = project?.status?.toLowerCase();
     if (currentStatus === 'planning' && ['In Progress', 'In Review', 'Done'].includes(newTaskStatus)) {
       try {
@@ -175,6 +204,37 @@ export default function ProjectDetail() {
     } catch (error) {
       console.error("Error updating status on drop", error);
       fetchData();
+    }
+  };
+
+  // ==== LOGIC UPLOAD TÀI LIỆU ====
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Giới hạn file 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File is too large! Maximum allowed size is 10MB.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      setIsUploadingFile(true);
+      const res = await uploadProjectResourceApi(project._id, formData);
+      // Nối file mới vào danh sách hiện tại để thấy ngay mà không cần reload trang
+      setProject(prev => ({
+        ...prev,
+        resources: [...(prev.resources || []), res.data.resource]
+      }));
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert(error.response?.data?.message || "Failed to upload file. Please try again.");
+    } finally {
+      setIsUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input
     }
   };
 
@@ -348,6 +408,87 @@ export default function ProjectDetail() {
     );
   };
 
+  // ==== RENDER TÀI NGUYÊN (RESOURCES) ====
+  const renderResourcesView = () => {
+    const resources = project.resources || [];
+    
+    return (
+      <div className="h-full flex flex-col">
+        {/* NÚT UPLOAD ẨN (Chỉ Sếp mới được xài) */}
+        {isLeader && !isProjectCompleted && (
+          <div className="mb-6 flex justify-end">
+             <input 
+               type="file" 
+               ref={fileInputRef} 
+               onChange={handleFileUpload} 
+               className="hidden" 
+               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+             />
+             <button 
+               onClick={() => fileInputRef.current?.click()}
+               disabled={isUploadingFile}
+               className={`bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-700 transition flex items-center ${isUploadingFile ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+             >
+               {isUploadingFile ? (
+                 <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Uploading...
+                 </>
+               ) : (
+                 <>
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                  Upload File
+                 </>
+               )}
+             </button>
+          </div>
+        )}
+
+        {/* LƯỚI TÀI LIỆU */}
+        {resources.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </div>
+            <p className="font-bold text-lg text-slate-700">No resources found</p>
+            <p className="text-sm text-slate-500 mt-1">Upload project documents, assets, and files here.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {resources.map((file, idx) => (
+              <a 
+                key={idx} 
+                // BỌC HÀM GET DOWNLOAD VÀO ĐÂY:
+                href={getDownloadUrl(file.url, file.type)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                download // Bổ sung cờ download của HTML5
+                className="group bg-white border border-slate-200 rounded-2xl p-4 hover:shadow-lg hover:border-blue-300 transition-all flex flex-col h-48"
+              >
+                {/* ICON THỂ HIỆN LOẠI FILE */}
+                <div className="flex-1 flex items-center justify-center bg-slate-50 rounded-xl mb-4 group-hover:bg-blue-50/50 transition">
+                  {file.type === 'image' ? (
+                     <svg className="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  ) : (
+                     <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  )}
+                </div>
+                {/* THÔNG TIN FILE */}
+                <div>
+                  <p className="font-bold text-sm text-slate-800 truncate" title={file.name}>{file.name}</p>
+                  <div className="flex justify-between items-center mt-2 text-xs text-slate-400 font-medium">
+                    <span>{formatDate(file.uploadedAt)}</span>
+                    <span className="uppercase tracking-wider font-bold text-slate-500">{file.type}</span>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (isLoading) return <div className="h-screen flex flex-col bg-slate-50"><Header /><div className="flex flex-1"><Sidebar /><div className="flex-1 flex items-center justify-center text-slate-500 font-medium">Loading project details...</div></div></div>;
   if (!project) return <div className="p-10 text-center text-red-500 font-medium">Project not found.</div>;
 
@@ -436,41 +577,63 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* MAIN BOARD (KANBAN/LIST) */}
+          {/* MAIN BOARD (KANBAN/LIST/RESOURCES) */}
           <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col min-h-0 overflow-hidden">
             
-            {/* BOARD TOOLBAR */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 shrink-0">
+            {/* BOARD TOOLBAR NÂNG CẤP */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 shrink-0 border-b border-slate-100 pb-4">
               
-              <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200/60">
-                <button onClick={() => setViewMode('kanban')} className={`flex items-center px-4 py-1.5 rounded-md transition text-sm font-bold ${viewMode === 'kanban' ? 'bg-white shadow-sm text-[#0b57d0]' : 'text-slate-500 hover:text-slate-700'}`}>
+              <div className="flex items-center space-x-6">
+                <button 
+                  onClick={() => setViewMode('kanban')} 
+                  className={`pb-2 transition text-sm font-bold border-b-2 ${viewMode === 'kanban' ? 'border-[#0b57d0] text-[#0b57d0]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  <div className="flex items-center">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
-                    Board
+                    Kanban Board
+                  </div>
                 </button>
-                <button onClick={() => setViewMode('list')} className={`flex items-center px-4 py-1.5 rounded-md transition text-sm font-bold ${viewMode === 'list' ? 'bg-white shadow-sm text-[#0b57d0]' : 'text-slate-500 hover:text-slate-700'}`}>
+                <button 
+                  onClick={() => setViewMode('list')} 
+                  className={`pb-2 transition text-sm font-bold border-b-2 ${viewMode === 'list' ? 'border-[#0b57d0] text-[#0b57d0]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  <div className="flex items-center">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
-                    List
+                    List View
+                  </div>
+                </button>
+                <button 
+                  onClick={() => setViewMode('resources')} 
+                  className={`pb-2 transition text-sm font-bold border-b-2 ${viewMode === 'resources' ? 'border-[#0b57d0] text-[#0b57d0]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  <div className="flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Resources
+                  </div>
                 </button>
               </div>
 
-              {!isProjectCompleted && (
-                <button onClick={() => setShowTaskModal(true)} className="bg-[#0b57d0] text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition shadow-sm flex items-center active:scale-95">
+              {/* CHỈ HIỂN THỊ NÚT CREATE ISSUE KHI ĐANG Ở TAB TASK VÀ DỰ ÁN CHƯA HOÀN THÀNH */}
+              {viewMode !== 'resources' && !isProjectCompleted && (
+                <button onClick={() => setShowTaskModal(true)} className="bg-[#0b57d0] text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm flex items-center active:scale-95">
                   <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                   Create issue
                 </button>
               )}
             </div>
 
-            {/* BOARD CONTENT CÓ KHẢ NĂNG SCROLL RIÊNG */}
-            <div className="flex-1 overflow-auto bg-white rounded-xl">
-                {viewMode === 'list' ? renderListView() : renderKanbanView()}
+            {/* BOARD CONTENT */}
+            <div className="flex-1 overflow-auto rounded-xl">
+                {viewMode === 'list' && renderListView()}
+                {viewMode === 'kanban' && renderKanbanView()}
+                {viewMode === 'resources' && renderResourcesView()}
             </div>
             
           </div>
         </div>
       </div>
 
-      {/* ================= CREATE TASK MODAL ================= */}
+      {/* ... (GIỮ NGUYÊN CÁC MODAL CREATE TASK VÀ COMPLETE PROJECT CỦA BÁC) ... */}
       {showTaskModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden animate-fade-in-up">
@@ -528,7 +691,6 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      {/* ================= COMPLETE CONFIRMATION MODAL ================= */}
       {showCompleteConfirm && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-fade-in-up p-6 text-center">

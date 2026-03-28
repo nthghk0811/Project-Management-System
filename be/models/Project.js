@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+
+
 const projectSchema = new mongoose.Schema(
   {
     name: {
@@ -11,6 +13,13 @@ const projectSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    resources: [{
+    name: { type: String },
+    url: { type: String },
+    type: { type: String }, // Khai báo tường minh thế này Mongoose mới chịu hiểu!
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    uploadedAt: { type: Date, default: Date.now }
+  }],
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

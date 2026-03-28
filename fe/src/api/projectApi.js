@@ -100,3 +100,14 @@ export const rejectLeaveRequestApi = (projectId, userId) => {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
+
+
+export const uploadProjectResourceApi = (projectId, formData) => {
+  const token = localStorage.getItem("token");
+  return axios.post(`${API}/${projectId}/resources`, formData, {
+    headers: { 
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data" 
+    },
+  });
+};

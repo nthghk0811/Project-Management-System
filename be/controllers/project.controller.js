@@ -1,7 +1,8 @@
 // be/controllers/project.controller.js
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
-import { logActivity } from "../utils/logger.js"; // BỔ SUNG IMPORT NÀY
+import { logActivity } from "../utils/logger.js";
+import cloudinary from "../config/cloudinary.js";
 
 /* CREATE */
 /* CREATE PROJECT */
@@ -10,25 +11,21 @@ export const createProject = async (req, res) => {
     const { name, description, startDate, endDate, type, members } = req.body;
     const owner = req.user.id;
 
-    // Đảm bảo Owner luôn nằm trong danh sách thành viên dự án
+
     let projectMembers = [owner];
-    
+
     // Nếu Admin có chọn thêm ai đó thì ghép mảng vào (lọc trùng lặp)
     if (members && Array.isArray(members)) {
       projectMembers = [...new Set([...projectMembers, ...members])];
     }
-
-    // Gộp type vào description nếu Backend chưa có trường type riêng
-    
-
     const newProject = new Project({
-      name, 
+      name,
       type,
-      description, 
-      owner, 
-      members: projectMembers, 
-      status: "planning", 
-      startDate, 
+      description,
+      owner,
+      members: projectMembers,
+      status: "planning",
+      startDate,
       endDate,
     });
 
@@ -106,7 +103,7 @@ export const deleteProject = async (req, res) => {
   try {
     const projectId = req.params.id;
     const userId = req.user.id;
-    const userRole = req.user.role ? req.user.role.toLowerCase() : ""; 
+    const userRole = req.user.role ? req.user.role.toLowerCase() : "";
     // 1. Tìm dự án
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ message: "Project not found" });
@@ -122,9 +119,9 @@ export const deleteProject = async (req, res) => {
 
     // 3. Tiến hành xóa nếu thỏa mãn điều kiện
     await Project.findByIdAndDelete(projectId);
-    
+
     // Khuyến nghị: Xóa luôn các Task thuộc Project này cho sạch Database
-    await Task.deleteMany({ project: projectId }); 
+    await Task.deleteMany({ project: projectId });
 
     res.status(200).json({ message: "Project deleted successfully" });
   } catch (error) {
@@ -146,10 +143,11 @@ export const updateProject = async (req, res) => {
     if (!project) return res.status(404).json({ message: "Project not found" });
 
     // Cấp quyền cho Owner VÀ Admin/Leader
+    const isProjectLeader = project.leader.toString() === userId;
     const isOwner = project.owner.toString() === userId;
     const isAdmin = userRole === "admin" || userRole === "leader";
 
-    if (!isOwner && !isAdmin) {
+    if (!isProjectLeader && !isAdmin) {
       return res.status(403).json({ message: "Access denied. Only the owner or Admin can update this project." });
     }
 
@@ -174,9 +172,9 @@ export const joinProject = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    
+
     // ÉP VỀ CHỮ THƯỜNG ĐỂ KHÔNG BAO GIỜ BẮT TRƯỢT
-    const userRole = req.user.role ? req.user.role.toLowerCase() : ""; 
+    const userRole = req.user.role ? req.user.role.toLowerCase() : "";
 
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: "Project not found" });
@@ -188,21 +186,21 @@ export const joinProject = async (req, res) => {
     // KIỂM TRA BẰNG CHỮ THƯỜNG
     if (userRole === "admin" || userRole === "leader") {
       await Project.findByIdAndUpdate(
-        id, 
-        { $addToSet: { members: userId } }, 
+        id,
+        { $addToSet: { members: userId } },
         { new: true }
       );
-      
-      return res.json({ 
+
+      return res.json({
         message: "You are an Admin. Joined project instantly!",
-        isAdminJoin: true 
+        isAdminJoin: true
       });
     }
 
     // ==== DÀNH CHO MEMBER ====
     await Project.findByIdAndUpdate(
-      id, 
-      { $addToSet: { pendingJoinRequests: userId } }, 
+      id,
+      { $addToSet: { pendingJoinRequests: userId } },
       { new: true }
     );
 
@@ -230,7 +228,7 @@ export const leaveProject = async (req, res) => {
 
     // Nếu là Member -> Đẩy vào hàng đợi Leave
     await Project.findByIdAndUpdate(id, { $addToSet: { pendingLeaveRequests: userId } });
-    
+
     res.json({ message: "Leave request sent to Admin. Please wait for approval.", action: "requested" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -328,5 +326,44 @@ export const getPendingRequests = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+//up resources
+export const uploadProjectResource = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Không tìm thấy file!" });
+    
+    const projectId = req.params.id;
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: "Không tìm thấy dự án" });
+
+    // Dùng Base64 để bắn file lên Cloudinary (chuẩn xịn giống bài Avatar)
+    const b64 = Buffer.from(req.file.buffer).toString("base64");
+    const dataUrl = `data:${req.file.mimetype};base64,${b64}`;
+
+    // Ném lên mây, set resource_type là 'auto' để nó nhận cả PDF, DOCX, ZIP...
+    const result = await cloudinary.uploader.upload(dataUrl, {
+      folder: `project_management_system/projects/${projectId}`, // Lưu riêng theo ID dự án
+      resource_type: 'auto' 
+    });
+
+    // Tạo object tài nguyên mới
+    const newResource = {
+      name: req.file.originalname,
+      url: result.secure_url,
+      type: req.file.mimetype.startsWith('image/') ? 'image' : 'raw', // Nhận diện ảnh hay tài liệu
+      uploadedBy: req.user.id
+    };
+
+    // Đẩy vào mảng và lưu lại
+    project.resources.push(newResource);
+    await project.save();
+
+    res.json({ message: "Tải lên tài liệu thành công!", resource: newResource });
+
+  } catch (error) {
+    console.error("Upload Resource Error:", error);
+    res.status(500).json({ message: "Lỗi server khi upload tài liệu" });
   }
 };

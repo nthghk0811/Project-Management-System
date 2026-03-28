@@ -12,9 +12,11 @@ import {
   rejectJoinRequest,
   approveLeaveRequest,
   rejectLeaveRequest,
-  getPendingRequests
+  getPendingRequests,
+  uploadProjectResource
 
 } from "../controllers/project.controller.js";
+import { uploadLocal } from "../config/cloudinary.js";
 import { authToken, adminAuth } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -35,5 +37,6 @@ router.post("/", authToken, createProject);
 router.get("/", authToken, getMyProjects);
 router.get("/:id", authToken, getProjectById);
 router.put("/:id", authToken, updateProject); // Route để cập nhật dự án
+router.post('/:id/resources', authToken, uploadLocal.single('file'), uploadProjectResource);
 
 export default router;

@@ -36,3 +36,13 @@ export const changePasswordApi = (data) => {
     }
   );
 };
+
+export const uploadAvatarApi = (formData) => {
+  const token = localStorage.getItem("token");
+  return axios.post("http://localhost:8080/api/users/upload-avatar", formData, {
+    headers: { 
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data" // Bắt buộc phải có dòng này khi up file
+    },
+  });
+};

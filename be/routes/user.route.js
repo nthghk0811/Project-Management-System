@@ -1,6 +1,6 @@
 import express from "express"
 import cloudinary, { uploadLocal } from '../config/cloudinary.js';
-import { getProfile, updateProfile, changePassword} from '../controllers/user.controller.js'
+import { getProfile, updateProfile, changePassword, getAllUsersAdmin, updateUserRole, deleteUser} from '../controllers/user.controller.js'
 import {authToken} from '../middlewares/auth.middleware.js'
 import User from '../models/User.js';
 
@@ -41,4 +41,11 @@ router.post('/upload-avatar', authToken, uploadLocal.single('avatar'), async (re
 router.get("/me", authToken, getProfile);
 router.put("/me", authToken, updateProfile);
 router.put("/change-password", authToken, changePassword);
+
+
+
+router.get("/admin/all", authToken, getAllUsersAdmin);
+router.put("/admin/:id/role", authToken, updateUserRole);
+router.delete("/admin/:id", authToken, deleteUser);
+
 export default router

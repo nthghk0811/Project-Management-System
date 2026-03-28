@@ -1,5 +1,3 @@
-
-
 import User from "../models/User.js";
 import bcrypt from 'bcryptjs'
 
@@ -64,5 +62,48 @@ export const changePassword = async (req, res) => {
     res.json({ message: "Password updated successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+
+
+//admin
+export const getAllUsersAdmin = async (req, res) => {
+  try {
+    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 2. Đổi quyền User (Admin <-> Member)
+export const updateUserRole = async (req, res) => {
+  try {
+    const { role } = req.body;
+    // Chặn cứng chỉ cho phép 2 role này
+    if (!['admin', 'Member'].includes(role)) {
+      return res.status(400).json({ message: "Quyền không hợp lệ!" });
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      req.params.id, 
+      { role }, 
+      { new: true }
+    ).select('-password');
+    
+    res.json({ message: `Đã cấp quyền ${role} cho ${user.fullName}`, user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 3. Xóa User
+export const deleteUser = async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: "Đã tiễn user ra chuồng gà thành công!" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

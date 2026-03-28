@@ -13,7 +13,7 @@ import Profile from './pages/Profile/Profile'
 import Settings from './pages/Settings'
 
 //admin import page
-import AdminLogin from './pages/admin/AdminLogin'
+// import AdminLogin from './pages/admin/AdminLogin'
 import AdminApproval from './pages/admin/AdminApproval'
 import AdminCreateProject from './pages/admin/AdminCreateProject'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -52,7 +52,7 @@ function AppRoutes() {
 
 
           //admin routes
-          <Route path="/admin" element={<AdminLogin />} />
+          {/* <Route path="/admin" element={<AdminLogin />} /> */}
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/projects/create" element={<ProtectedRoute><AdminCreateProject /></ProtectedRoute>} />
           <Route path="/admin/approval" element={<ProtectedRoute><AdminApproval /></ProtectedRoute>} />

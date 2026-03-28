@@ -1,6 +1,6 @@
 import express from 'express';
 import {body} from 'express-validator';
-import { register, login , getMe, adminLogin, getAllUsers} from '../controllers/auth.controller.js';
+import { register, login , getMe, getAllUsers} from '../controllers/auth.controller.js';
 import {authToken} from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -18,10 +18,10 @@ router.post('/login', [
 ], login);
 
 // Admin login
-router.post('/admin/login', [
-  body('email').isEmail().withMessage('Invalid email format').normalizeEmail(),
-  body('password').notEmpty().withMessage('Password is required')
-], adminLogin);
+// router.post('/admin/login', [
+//   body('email').isEmail().withMessage('Invalid email format').normalizeEmail(),
+//   body('password').notEmpty().withMessage('Password is required')
+// ], adminLogin);
 
 router.get('/me', authToken, getMe);
 router.get('/users', authToken, getAllUsers);

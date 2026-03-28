@@ -2,6 +2,9 @@
 import { useState, useEffect } from "react";
 import Header from "../../components/layout/Header";
 import Sidebar from "../../components/layout/Sidebar";
+//update status using lastLOgin
+import { formatDistanceToNow, differenceInMinutes, differenceInDays } from "date-fns";
+
 import { getMyProjectsApi, getPendingRequestsApi, approveJoinRequestApi, rejectJoinRequestApi, approveLeaveRequestApi, rejectLeaveRequestApi } from "../../api/projectApi";
 import { getAllUsersApi, updateUserRoleApi, deleteUserApi } from "../../api/userApi"; 
 export default function AdminApproval() {
@@ -76,7 +79,7 @@ export default function AdminApproval() {
   const handleChangeRole = async (userId, currentRole) => {
     // Đảo ngược quyền hiện tại
     const newRole = currentRole === 'admin' ? 'Member' : 'admin';
-    const confirmMsg = `Bạn có chắc muốn đổi quyền người này thành ${newRole.toUpperCase()}?`;
+    const confirmMsg = `Change this user's role to ${newRole.toUpperCase()}?`;
     
     if (!window.confirm(confirmMsg)) return;
 
@@ -84,22 +87,22 @@ export default function AdminApproval() {
       await updateUserRoleApi(userId, newRole);
       // Cập nhật lại state cục bộ không cần load lại API
       setUsers(users.map(u => u._id === userId ? { ...u, role: newRole } : u));
-      showToast(`Đã thay đổi quyền thành ${newRole}!`);
+      showToast(`Role changed to ${newRole}!`);
     } catch (error) {
-      showToast(error.response?.data?.message || "Lỗi khi đổi quyền", "error");
+      showToast(error.response?.data?.message || "Error changing role", "error");
     }
     setOpenActionMenuId(null);
   };
 
   const handleDeleteUser = async (userId, userName) => {
-    if (!window.confirm(`NGUY HIỂM: Bạn có chắc chắn muốn xóa vĩnh viễn [${userName}] khỏi hệ thống không? Hành động này không thể hoàn tác!`)) return;
+    if (!window.confirm(`WARNING: Are you sure you want to permanently delete [${userName}] from the system? This action cannot be undone!`)) return;
 
     try {
       await deleteUserApi(userId);
       setUsers(users.filter(u => u._id !== userId));
-      showToast(`Đã xóa tài khoản ${userName}`, "success");
+      showToast(`Deleted account ${userName}`, "success");
     } catch (error) {
-      showToast(error.response?.data?.message || "Lỗi khi xóa người dùng", "error");
+      showToast(error.response?.data?.message || "Error deleting user", "error");
     }
     setOpenActionMenuId(null);
   };
@@ -120,6 +123,24 @@ export default function AdminApproval() {
     const matchRole = roleFilter === "All" || u.role?.toLowerCase() === roleFilter.toLowerCase();
     return matchSearch && matchRole;
   });
+
+  const getUserStatus = (lastLogin) => {
+    if (!lastLogin) return { label: 'Inactive', color: 'slate-400', text: 'Never logged in' };
+
+    const loginDate = new Date(lastLogin);
+    const minsDiff = differenceInMinutes(new Date(), loginDate);
+    const daysDiff = differenceInDays(new Date(), loginDate);
+
+    if (minsDiff < 5) {
+      return { label: 'Online', color: 'bg-emerald-500', text: 'Active now' };
+    }
+    else if (daysDiff < 7) {
+      return { label: 'Offline', color: 'bg-amber-400', text: `Last active ${formatDistanceToNow(loginDate, { addSuffix: true })}` };
+    }
+    else {
+      return { label: 'Inactive', color: 'bg-rose-500', text: `Away for ${daysDiff} days` };
+    }
+  }
 
   return (
     <div className="bg-slate-50 min-h-screen font-sans flex flex-col relative">
@@ -264,11 +285,21 @@ export default function AdminApproval() {
                             </td>
 
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center space-x-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                <span className="text-sm font-semibold text-slate-700">Active</span>
-                              </div>
-                            </td>
+  {(() => {
+    const statusData = getUserStatus(u.lastLogin);
+    return (
+      <div>
+        <div className="flex items-center space-x-2">
+          <span className={`w-2.5 h-2.5 rounded-full ${statusData.color} shadow-sm animate-pulse`}></span>
+          <span className="text-sm font-bold text-slate-700">{statusData.label}</span>
+        </div>
+        <p className="text-[11px] font-semibold text-slate-400 mt-0.5 ml-4">
+          {statusData.text}
+        </p>
+      </div>
+    );
+  })()}
+</td>
 
                             <td className="px-6 py-4 whitespace-nowrap">
                               <p className="text-sm font-medium text-slate-600">

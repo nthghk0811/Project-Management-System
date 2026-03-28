@@ -81,9 +81,14 @@ export const getAllUsersAdmin = async (req, res) => {
 export const updateUserRole = async (req, res) => {
   try {
     const { role } = req.body;
-    // Chặn cứng chỉ cho phép 2 role này
+    //block admin self-kill:)
+    if (req.user.id === req.params.id) {
+      return res.status(400).json({ message: "You cannot change your own role!" });
+    }
+
+    
     if (!['admin', 'Member'].includes(role)) {
-      return res.status(400).json({ message: "Quyền không hợp lệ!" });
+      return res.status(400).json({ message: "Unauthorized!" });
     }
     
     const user = await User.findByIdAndUpdate(
@@ -92,7 +97,7 @@ export const updateUserRole = async (req, res) => {
       { new: true }
     ).select('-password');
     
-    res.json({ message: `Đã cấp quyền ${role} cho ${user.fullName}`, user });
+    res.json({ message: `${role} updated for ${user.fullName}`, user });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -102,7 +107,11 @@ export const updateUserRole = async (req, res) => {
 export const deleteUser = async (req, res) => {
   try {
     await User.findByIdAndDelete(req.params.id);
-    res.json({ message: "Đã tiễn user ra chuồng gà thành công!" });
+    //block admin self-kill:)
+    if (req.user.id === req.params.id) {
+      return res.status(400).json({ message: "You cannot change your own role!" });
+    }
+    res.json({ message: "User deleted successfully!" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

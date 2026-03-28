@@ -72,6 +72,6 @@ export const globalSearch = async (req, res) => {
 
   } catch (error) {
     console.error("Search Error:", error);
-    res.status(500).json({ message: "Lỗi hệ thống tìm kiếm" });
+    res.status(500).json({ message: "Error occurred while searching" });
   }
 };

@@ -2,12 +2,14 @@
 import { useState, useEffect } from "react";
 import Header from "../../components/layout/Header";
 import Sidebar from "../../components/layout/Sidebar";
-//update status using lastLOgin
 import { formatDistanceToNow, differenceInMinutes, differenceInDays } from "date-fns";
+import { useAuth } from "../../context/AuthContext"; // Import useAuth để lấy thông tin sếp
 
 import { getMyProjectsApi, getPendingRequestsApi, approveJoinRequestApi, rejectJoinRequestApi, approveLeaveRequestApi, rejectLeaveRequestApi } from "../../api/projectApi";
 import { getAllUsersApi, updateUserRoleApi, deleteUserApi } from "../../api/userApi"; 
+
 export default function AdminApproval() {
+  const { user } = useAuth(); // Lấy thông tin người đang đăng nhập
   const [activeTab, setActiveTab] = useState("approvals"); 
 
   // ==== PENDING APPROVALS STATES ====
@@ -15,11 +17,15 @@ export default function AdminApproval() {
   const [isLoading, setIsLoading] = useState(true);
 
   // ==== USER MANAGEMENT STATES ====
-  const [users, setUsers] = useState([]); // Chuyển thành mảng rỗng để hứng data thật
+  const [users, setUsers] = useState([]); 
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [searchUser, setSearchUser] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [openActionMenuId, setOpenActionMenuId] = useState(null); 
+
+  // ==== PAGINATION STATES ====
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 5; // Bác có thể đổi thành 10 hoặc 20 tùy ý
 
   // ==== GLOBAL TOAST ====
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
@@ -29,9 +35,7 @@ export default function AdminApproval() {
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3000);
   };
 
- 
   const fetchRequests = async () => {
-    // ... (Toàn bộ logic fetchRequests cũ giữ nguyên 100%)
     try {
       setIsLoading(true);
       const projectsRes = await getMyProjectsApi();
@@ -41,13 +45,13 @@ export default function AdminApproval() {
           const reqRes = await getPendingRequestsApi(project._id);
           const projectData = reqRes.data;
           if (projectData.pendingJoinRequests) {
-            projectData.pendingJoinRequests.forEach(user => {
-              allRequests.push({ id: `join_${project._id}_${user._id || user}`, projectId: project._id, userId: user._id || user, user: user.fullName || "Unknown User", avatar: user.avatar || `https://ui-avatars.com/api/?name=${user.fullName || "U"}`, type: 'JOIN', project: project.name });
+            projectData.pendingJoinRequests.forEach(u => {
+              allRequests.push({ id: `join_${project._id}_${u._id || u}`, projectId: project._id, userId: u._id || u, user: u.fullName || "Unknown User", avatar: u.avatar || `https://ui-avatars.com/api/?name=${u.fullName || "U"}`, type: 'JOIN', project: project.name });
             });
           }
           if (projectData.pendingLeaveRequests) {
-            projectData.pendingLeaveRequests.forEach(user => {
-              allRequests.push({ id: `leave_${project._id}_${user._id || user}`, projectId: project._id, userId: user._id || user, user: user.fullName || "Unknown User", avatar: user.avatar || `https://ui-avatars.com/api/?name=${user.fullName || "U"}`, type: 'LEAVE', project: project.name });
+            projectData.pendingLeaveRequests.forEach(u => {
+              allRequests.push({ id: `leave_${project._id}_${u._id || u}`, projectId: project._id, userId: u._id || u, user: u.fullName || "Unknown User", avatar: u.avatar || `https://ui-avatars.com/api/?name=${u.fullName || "U"}`, type: 'LEAVE', project: project.name });
             });
           }
         } catch (err) { console.error(err); }
@@ -56,7 +60,6 @@ export default function AdminApproval() {
     } catch (error) { showToast("Failed to load pending requests.", "error"); } finally { setIsLoading(false); }
   };
 
-  // 2. Fetch Danh sách User thật
   const fetchUsers = async () => {
     try {
       setIsLoadingUsers(true);
@@ -69,15 +72,17 @@ export default function AdminApproval() {
     }
   };
 
-  // GỌI API KHI ĐỔI TAB
   useEffect(() => {
     if (activeTab === 'approvals') fetchRequests();
-    if (activeTab === 'users' && users.length === 0) fetchUsers(); // Chỉ fetch lần đầu bấm sang tab
+    if (activeTab === 'users' && users.length === 0) fetchUsers(); 
   }, [activeTab]);
 
-  // ==== CÁC HÀM XỬ LÝ USER ====
+  // Reset về trang 1 nếu sếp gõ search hoặc đổi bộ lọc
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchUser, roleFilter]);
+
   const handleChangeRole = async (userId, currentRole) => {
-    // Đảo ngược quyền hiện tại
     const newRole = currentRole === 'admin' ? 'Member' : 'admin';
     const confirmMsg = `Change this user's role to ${newRole.toUpperCase()}?`;
     
@@ -85,7 +90,6 @@ export default function AdminApproval() {
 
     try {
       await updateUserRoleApi(userId, newRole);
-      // Cập nhật lại state cục bộ không cần load lại API
       setUsers(users.map(u => u._id === userId ? { ...u, role: newRole } : u));
       showToast(`Role changed to ${newRole}!`);
     } catch (error) {
@@ -107,7 +111,6 @@ export default function AdminApproval() {
     setOpenActionMenuId(null);
   };
 
-  // ... (Hàm handleApprove và handleReject cũ giữ nguyên)
   const handleApprove = async (req) => { try { if (req.type === 'JOIN') { await approveJoinRequestApi(req.projectId, req.userId); } else { await approveLeaveRequestApi(req.projectId, req.userId); } showToast(`Approved request for ${req.user}.`); setRequests(requests.filter(r => r.id !== req.id)); } catch (error) { showToast("Error approving request.", "error"); } };
   const handleReject = async (req) => { if (!window.confirm(`Reject this request?`)) return; try { if (req.type === 'JOIN') { await rejectJoinRequestApi(req.projectId, req.userId); } else { await rejectLeaveRequestApi(req.projectId, req.userId); } showToast(`Rejected request for ${req.user}.`); setRequests(requests.filter(r => r.id !== req.id)); } catch (error) { showToast("Error rejecting request.", "error"); } };
 
@@ -117,15 +120,8 @@ export default function AdminApproval() {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  // Lọc danh sách users (Dọn sạch Leader)
-  const filteredUsers = users.filter(u => {
-    const matchSearch = (u.fullName || '').toLowerCase().includes(searchUser.toLowerCase()) || (u.email || '').toLowerCase().includes(searchUser.toLowerCase());
-    const matchRole = roleFilter === "All" || u.role?.toLowerCase() === roleFilter.toLowerCase();
-    return matchSearch && matchRole;
-  });
-
   const getUserStatus = (lastLogin) => {
-    if (!lastLogin) return { label: 'Inactive', color: 'slate-400', text: 'Never logged in' };
+    if (!lastLogin) return { label: 'Inactive', color: 'bg-slate-400', text: 'Never logged in' };
 
     const loginDate = new Date(lastLogin);
     const minsDiff = differenceInMinutes(new Date(), loginDate);
@@ -141,6 +137,21 @@ export default function AdminApproval() {
       return { label: 'Inactive', color: 'bg-rose-500', text: `Away for ${daysDiff} days` };
     }
   }
+
+  // Lọc danh sách users
+  const filteredUsers = users.filter(u => {
+    const matchSearch = (u.fullName || '').toLowerCase().includes(searchUser.toLowerCase()) || (u.email || '').toLowerCase().includes(searchUser.toLowerCase());
+    const matchRole = roleFilter === "All" || u.role?.toLowerCase() === roleFilter.toLowerCase();
+    return matchSearch && matchRole;
+  });
+
+  // TÍNH TOÁN PHÂN TRANG
+  const indexOfLastUser = currentPage * usersPerPage;
+  const indexOfFirstUser = indexOfLastUser - usersPerPage;
+  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
     <div className="bg-slate-50 min-h-screen font-sans flex flex-col relative">
@@ -179,11 +190,10 @@ export default function AdminApproval() {
           </div>
 
           {/* ========================================= */}
-          {/* TAB 1: PENDING APPROVALS CONTENT (Giữ nguyên) */}
+          {/* TAB 1: PENDING APPROVALS CONTENT */}
           {/* ========================================= */}
           {activeTab === 'approvals' && (
             <div className="animate-fade-in-up">
-              {/* UI BẢNG REQUESTS GIỮ NGUYÊN */}
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-5 border-b border-slate-100 bg-slate-50/50"><h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Requests List</h2></div>
                 <div className="overflow-x-auto min-h-[300px]">
@@ -231,7 +241,6 @@ export default function AdminApproval() {
                       className="block w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-[#0b57d0] outline-none transition text-slate-700 shadow-sm"
                     />
                   </div>
-                  {/* CẬP NHẬT SELECT ROLE (Chỉ còn Admin và Member) */}
                   <select 
                     value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}
                     className="border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-[#0b57d0] focus:ring-2 focus:ring-blue-100 shadow-sm cursor-pointer"
@@ -243,7 +252,7 @@ export default function AdminApproval() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-visible">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-visible flex flex-col">
                 <div className="overflow-x-auto min-h-[400px]">
                   {isLoadingUsers ? (
                      <div className="flex justify-center items-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
@@ -259,10 +268,10 @@ export default function AdminApproval() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredUsers.length === 0 ? (
+                      {currentUsers.length === 0 ? (
                         <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500 text-sm font-medium">No users found.</td></tr>
                       ) : (
-                        filteredUsers.map((u) => (
+                        currentUsers.map((u) => (
                           <tr key={u._id} className="hover:bg-slate-50/80 transition group">
                             
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -285,21 +294,21 @@ export default function AdminApproval() {
                             </td>
 
                             <td className="px-6 py-4 whitespace-nowrap">
-  {(() => {
-    const statusData = getUserStatus(u.lastLogin);
-    return (
-      <div>
-        <div className="flex items-center space-x-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${statusData.color} shadow-sm animate-pulse`}></span>
-          <span className="text-sm font-bold text-slate-700">{statusData.label}</span>
-        </div>
-        <p className="text-[11px] font-semibold text-slate-400 mt-0.5 ml-4">
-          {statusData.text}
-        </p>
-      </div>
-    );
-  })()}
-</td>
+                              {(() => {
+                                const statusData = getUserStatus(u.lastLogin);
+                                return (
+                                  <div>
+                                    <div className="flex items-center space-x-2">
+                                      <span className={`w-2.5 h-2.5 rounded-full ${statusData.color} shadow-sm animate-pulse`}></span>
+                                      <span className="text-sm font-bold text-slate-700">{statusData.label}</span>
+                                    </div>
+                                    <p className="text-[11px] font-semibold text-slate-400 mt-0.5 ml-4">
+                                      {statusData.text}
+                                    </p>
+                                  </div>
+                                );
+                              })()}
+                            </td>
 
                             <td className="px-6 py-4 whitespace-nowrap">
                               <p className="text-sm font-medium text-slate-600">
@@ -308,37 +317,46 @@ export default function AdminApproval() {
                             </td>
 
                             <td className="px-6 py-4 whitespace-nowrap text-right relative">
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setOpenActionMenuId(openActionMenuId === u._id ? null : u._id); }}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition focus:outline-none"
-                              >
-                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
-                                </svg>
-                              </button>
+                              
+                              {(u._id === user?._id || u._id === user?.id) ? (
+                                <span className="inline-block px-3 py-1 bg-slate-100 text-slate-400 text-xs font-bold rounded-lg cursor-not-allowed">
+                                  You
+                                </span>
+                              ) : (
+                                <>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setOpenActionMenuId(openActionMenuId === u._id ? null : u._id); }}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition focus:outline-none"
+                                  >
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+                                    </svg>
+                                  </button>
 
-                              {/* Dropdown Menu */}
-                              {openActionMenuId === u._id && (
-                                <div className="absolute right-8 top-10 mt-1 w-56 bg-white rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 z-50 overflow-hidden text-left animate-fade-in-up">
-                                  <div className="py-1">
-                                    <button 
-                                      onClick={() => handleChangeRole(u._id, u.role)}
-                                      className="w-full px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 flex items-center transition"
-                                    >
-                                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                      {u.role === 'admin' ? 'Demote to Member' : 'Promote to Admin'}
-                                    </button>
-                                  </div>
-                                  <div className="border-t border-slate-100 py-1">
-                                    <button 
-                                      onClick={() => handleDeleteUser(u._id, u.fullName)}
-                                      className="w-full px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 flex items-center transition"
-                                    >
-                                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                      Delete Account
-                                    </button>
-                                  </div>
-                                </div>
+                                  {/* Dropdown Menu */}
+                                  {openActionMenuId === u._id && (
+                                    <div className="absolute right-8 top-10 mt-1 w-56 bg-white rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 z-50 overflow-hidden text-left animate-fade-in-up">
+                                      <div className="py-1">
+                                        <button 
+                                          onClick={() => handleChangeRole(u._id, u.role)}
+                                          className="w-full px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 flex items-center transition"
+                                        >
+                                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                          {u.role === 'admin' ? 'Demote to Member' : 'Promote to Admin'}
+                                        </button>
+                                      </div>
+                                      <div className="border-t border-slate-100 py-1">
+                                        <button 
+                                          onClick={() => handleDeleteUser(u._id, u.fullName)}
+                                          className="w-full px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 flex items-center transition"
+                                        >
+                                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                          Delete Account
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </td>
                           </tr>
@@ -348,6 +366,31 @@ export default function AdminApproval() {
                   </table>
                   )}
                 </div>
+
+                {/* THÊM THANH PHÂN TRANG Ở ĐÂY */}
+                {!isLoadingUsers && filteredUsers.length > usersPerPage && (
+                  <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                    <p className="text-sm text-slate-500 font-medium">
+                      Showing <span className="font-bold text-slate-800">{indexOfFirstUser + 1}</span> to <span className="font-bold text-slate-800">{Math.min(indexOfLastUser, filteredUsers.length)}</span> of <span className="font-bold text-slate-800">{filteredUsers.length}</span> users
+                    </p>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => paginate(currentPage - 1)} 
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                        Previous
+                      </button>
+                      <button 
+                        onClick={() => paginate(currentPage + 1)} 
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

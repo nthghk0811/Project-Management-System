@@ -16,6 +16,7 @@ import userRoute from './routes/user.route.js'
 import taskRoute from './routes/task.route.js';
 import searchRoute from './routes/search.route.js';
 import notificationRoute from './routes/notification.route.js';
+import supportRoute from './routes/support.route.js'; 
 
 
 dotenv.config();
@@ -57,6 +58,11 @@ io.on("connection", (socket) => {
     console.log(`User ${socket.id} vừa chui vào phòng Project: ${projectId}`);
   });
 
+  socket.on("join_user_room", (userId) => {
+    socket.join(userId.toString());
+    console.log(`User ${userId} đã sẵn sàng nhận tin nhắn riêng.`);
+  });
+
   socket.on("disconnect", () => {
     console.log(`🔴 User ${socket.id} vừa ngắt kết nối!`);
   });
@@ -73,6 +79,7 @@ app.use('/api/users', userRoute)
 app.use('/api/tasks', taskRoute);
 app.use('/api/search', searchRoute)
 app.use('/api/notifications', notificationRoute)
+app.use('/api/support', supportRoute)
 
 await mongoose.connect(process.env.MONGO_URI);
 

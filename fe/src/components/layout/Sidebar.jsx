@@ -1,7 +1,8 @@
 // fe/src/components/layout/Sidebar.jsx
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext"; // Bổ sung import này
+import { useAuth } from "../../context/AuthContext"; 
+import { createSupportTicketApi } from "../../api/supportApi";
 
 
 export default function Sidebar() {
@@ -40,13 +41,20 @@ const menu = [
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-  const handleSendSupport = (e) => {
+  const handleSendSupport = async (e) => {
     e.preventDefault();
     if (!supportText.trim()) return;
     
-    setShowSupport(false);
-    setSupportText("");
-    showToast("Your support request has been sent to the Admin.");
+    try {
+      await createSupportTicketApi({ message: supportText });
+      
+      setShowSupport(false);
+      setSupportText("");
+      showToast("Your support request has been sent to the Admin.");
+    } catch (error) {
+      showToast("Failed to send message. Please try again.");
+      console.error(error);
+    }
   };
 
   return (

@@ -3,7 +3,9 @@ import { useState, useEffect } from "react";
 import Header from "../../components/layout/Header";
 import Sidebar from "../../components/layout/Sidebar";
 import { formatDistanceToNow, differenceInMinutes, differenceInDays } from "date-fns";
-import { useAuth } from "../../context/AuthContext"; // Import useAuth để lấy thông tin sếp
+import { useAuth } from "../../context/AuthContext";
+import { io } from "socket.io-client";
+import {getAllSupportTicketsApi} from "../../api/supportApi";
 
 import { getMyProjectsApi, getPendingRequestsApi, approveJoinRequestApi, rejectJoinRequestApi, approveLeaveRequestApi, rejectLeaveRequestApi } from "../../api/projectApi";
 import { getAllUsersApi, updateUserRoleApi, deleteUserApi } from "../../api/userApi"; 
@@ -33,6 +35,21 @@ export default function AdminApproval() {
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3000);
+  };
+
+  const [supportTickets, setSupportTickets] = useState([]);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+
+  const fetchTickets = async () => {
+    try {
+      setIsLoadingTickets(true);
+      const res = await getAllSupportTicketsApi();
+      setSupportTickets(res.data);
+    } catch (error) {
+      console.error("Lỗi tải tickets", error);
+    } finally {
+      setIsLoadingTickets(false);
+    }
   };
 
   const fetchRequests = async () => {
@@ -75,12 +92,30 @@ export default function AdminApproval() {
   useEffect(() => {
     if (activeTab === 'approvals') fetchRequests();
     if (activeTab === 'users' && users.length === 0) fetchUsers(); 
+    if (activeTab === 'support' && supportTickets.length === 0) fetchTickets();
   }, [activeTab]);
+
+
 
   // Reset về trang 1 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchUser, roleFilter]);
+
+  //socket
+  useEffect(() => {
+    const socket = io("http://localhost:8080"); 
+
+    socket.on("new_support_ticket", (newTicket) => {
+      console.log("🔥 Có nhân viên vừa kêu cứu!");
+      // Nhét thẳng tin nhắn mới lên ĐẦU danh sách
+      setSupportTickets(prev => [newTicket, ...prev]);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const handleChangeRole = async (userId, currentRole) => {
     const newRole = currentRole === 'admin' ? 'Member' : 'admin';
@@ -186,6 +221,13 @@ export default function AdminApproval() {
               className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'users' ? 'border-[#0b57d0] text-[#0b57d0]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             >
               User Management
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('support')}
+              className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'support' ? 'border-[#0b57d0] text-[#0b57d0]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            >
+              Support Tickets
             </button>
           </div>
 
@@ -391,6 +433,56 @@ export default function AdminApproval() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================= */}
+          {/* TAB 3: SUPPORT TICKETS (HÒM THƯ GÓP Ý)      */}
+          {/* ========================================= */}
+          {activeTab === 'support' && (
+            <div className="animate-fade-in-up">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                 <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                   <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">User Feedbacks & Issues</h2>
+                 </div>
+                 
+                 {/* Khung chứa tin nhắn */}
+                 {/* Khung chứa tin nhắn */}
+                 <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+                    {isLoadingTickets ? (
+                      <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div></div>
+                    ) : supportTickets.length === 0 ? (
+                      <div className="text-center py-12 text-slate-500 text-sm font-medium">Hòm thư trống. Nhân viên đang rất vui vẻ! 🎉</div>
+                    ) : (
+                      supportTickets.map((ticket) => (
+                        <div key={ticket._id} className="p-6 hover:bg-slate-50 transition group">
+                           <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center space-x-3">
+                                <img 
+                                  src={ticket.user?.avatar || `https://ui-avatars.com/api/?name=${ticket.user?.fullName || "U"}`} 
+                                  className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                                  alt="avatar"
+                                />
+                                <div>
+                                  <p className="text-sm font-bold text-slate-800">{ticket.user?.fullName || "Unknown User"}</p>
+                                  <p className="text-xs font-semibold text-slate-400">{ticket.user?.email || "No email"}</p>
+                                </div>
+                              </div>
+                              <span className="text-[11px] font-bold text-slate-400 uppercase">
+                                {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
+                              </span>
+                           </div>
+                           
+                           <div className="mt-4 pl-13">
+                             <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100 whitespace-pre-wrap">
+                               {ticket.message}
+                             </p>
+                           </div>
+                        </div>
+                      ))
+                    )}
+                 </div>
               </div>
             </div>
           )}

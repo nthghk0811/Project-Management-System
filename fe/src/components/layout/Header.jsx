@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { globalSearchApi } from "../../api/searchApi";
-import { getNotificationsApi, markNotificationReadApi } from "../../api/notificationApi"; 
+import { io } from "socket.io-client";
+import { getNotificationsApi, markNotificationReadApi, markAllNotificationsReadApi } from "../../api/notificationApi"; 
 import Logo from "../../assets/Icon.png";
 import { formatDistanceToNow } from "date-fns";
 
@@ -55,6 +56,39 @@ export default function Header() {
       console.error(error);
     }
   };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsReadApi();
+      // Chuyển toàn bộ state ảo thành true để UI mờ đi ngay lập tức
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    const socket = io("http://localhost:8080"); 
+
+    socket.on("connect", () => {
+      if (user?._id) {
+        socket.emit("join_user_room", user._id);
+      }
+    });
+
+    // Nghe đài "new_global_notification" từ Backend
+    socket.on("new_global_notification", (newNoti) => {
+      console.log("🔔 Có thông báo từ Sếp tổng!");
+      // Nhét thẳng thông báo mới tinh này vào đầu danh sách (Không cần gọi API tốn tài nguyên)
+      setNotifications((prevNotifs) => [newNoti, ...prevNotifs]);
+      
+      
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [user?._id]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -279,9 +313,12 @@ export default function Header() {
                   ))
                 )}
               </div>
-              <div className="px-4 py-2 border-t border-slate-100 text-center bg-slate-50 hover:bg-slate-100 cursor-pointer transition">
-                <span className="text-xs font-bold text-blue-600">Mark all as read</span>
-              </div>
+              <div 
+  onClick={handleMarkAllRead} 
+  className="px-4 py-2 border-t border-slate-100 text-center bg-slate-50 hover:bg-slate-100 cursor-pointer transition"
+>
+  <span className="text-xs font-bold text-blue-600">Mark all as read</span>
+</div>
             </div>
           )}
         </div>

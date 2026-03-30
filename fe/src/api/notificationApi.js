@@ -1,10 +1,30 @@
+// fe/src/api/notificationApi.js
 import axios from "axios";
-const API_URL = "http://localhost:8080/api/notifications"; // Chỉnh port cho đúng
+
+const API = "http://localhost:8080/api/notifications"; // Chỉnh đúng port backend của bác
 
 export const getNotificationsApi = () => {
-  return axios.get(API_URL, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+  const token = localStorage.getItem("token");
+  return axios.get(API, { headers: { Authorization: `Bearer ${token}` } });
 };
 
 export const markNotificationReadApi = (id) => {
-  return axios.put(`${API_URL}/${id}/read`, {}, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+  const token = localStorage.getItem("token");
+  return axios.put(`${API}/${id}/read`, {}, { headers: { Authorization: `Bearer ${token}` } });
+};
+
+// HÀM BẮN LOA PHƯỜNG DÀNH CHO ADMIN
+export const sendGlobalNotificationApi = (data) => {
+  const token = localStorage.getItem("token");
+  return axios.post(`${API}/global`, data, { headers: { Authorization: `Bearer ${token}` } });
+};
+
+export const markAllNotificationsReadApi = () => {
+  const token = localStorage.getItem("token");
+  return axios.put(`${API}/read-all`, {}, { headers: { Authorization: `Bearer ${token}` } });
+};
+
+export const sendPrivateNotificationApi = (data) => {
+  const token = localStorage.getItem("token");
+  return axios.post(`${API}/private`, data, { headers: { Authorization: `Bearer ${token}` } });
 };

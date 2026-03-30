@@ -56,7 +56,6 @@ export const deleteProjectApi = (projectId) => {
 
 // fe/src/api/projectApi.js
 
-// ... các hàm API cũ
 
 export const updateProjectApi = (id, data) => {
   const token = localStorage.getItem("token");

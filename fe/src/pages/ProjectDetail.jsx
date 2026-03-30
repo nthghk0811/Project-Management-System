@@ -35,7 +35,7 @@ export default function ProjectDetail() {
 
   // CHECK QUYỀN LEADER/ADMIN
   // const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const isLeader = user?.role?.toLowerCase() === "admin" || project?.leader === user?._id || project?.leader?._id === user?._id;
+  const isLeader = user?.role?.toLowerCase() === "admin" || project?.owner === user?._id || project?.owner?._id === user?._id;
 
   const fetchData = async () => {
     try {

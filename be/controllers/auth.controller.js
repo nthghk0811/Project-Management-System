@@ -103,17 +103,16 @@ export const register = async (req, res) => {
 };
 
 export const login = async (req, res) => {
-    try{
-        const { email, password, fullName } = req.body;
+    try {
+        const { email, password } = req.body; 
         const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    // Trả về lỗi đầu tiên trong mảng để Frontend in ra Toast cho đẹp
-    return res.status(400).json({ message: errors.array()[0].msg });
-  }
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ message: errors.array()[0].msg });
+        }
 
         const user = await User.findOne({ email });
         if (!user) {
-            return  res.status(400).json({ message: 'Invalid email or password' });
+            return res.status(400).json({ message: 'Invalid email or password' });
         }
 
         const isPasswordValid = bcrypt.compareSync(password, user.password);
@@ -121,17 +120,28 @@ export const login = async (req, res) => {
             return res.status(400).json({ message: 'Invalid email or password' });
         }
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        // 🛡️ SỬA LỖI 2: Nhét thêm role vào Token để Backend nhận diện được Sếp
+        const token = jwt.sign(
+            { id: user._id, role: user.role }, 
+            process.env.JWT_SECRET, 
+            { expiresIn: '1d' }
+        );
 
         user.lastLogin = new Date();
         await user.save();
 
-        res.status(200).json({ message: 'Login successful', user: {
-            id: user._id,
-            email: user.email,
-            fullName: user.fullName,
-            role: user.role
-         }, token});
+
+        res.status(200).json({ 
+            message: 'Login successful', 
+            user: {
+                _id: user._id, 
+                email: user.email,
+                fullName: user.fullName,
+                avatar: user.avatar,
+                role: user.role
+            }, 
+            token
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -5,20 +5,17 @@ const taskSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
-    
-    // Liên kết
+  
     project: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true },
     
-    // Đổi từ creator sang owner theo đúng cấu trúc của bạn
     creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     assignee: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    
-    // Để làm Subtasks (nếu null thì là task cha, nếu có ID thì là task con của ID đó)
+  
     parentTask: { type: mongoose.Schema.Types.ObjectId, ref: "Task", default: null },
 
     status: {
       type: String,
-      enum: ["To Do", "In Progress", "In Review", "Done"], // Đã thêm Completed theo UI
+      enum: ["To Do", "In Progress", "In Review", "Done"],
       default: "To Do",
     },
     priority: {

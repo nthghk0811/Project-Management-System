@@ -132,35 +132,38 @@ export const deleteProject = async (req, res) => {
 
 
 
+// be/controllers/project.controller.js
+
 export const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const userRole = req.user.role ? req.user.role.toLowerCase() : "";
-    const updateData = req.body;
 
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    // Cấp quyền cho Owner VÀ Admin/Leader
-    const isProjectLeader = project.leader.toString() === userId;
-    const isOwner = project.owner.toString() === userId;
-    const isAdmin = userRole === "admin" || userRole === "leader";
+    // 1. Check quyền Chủ dự án
+    const isOwner = project.owner && project.owner.toString() === userId;
+    
+    // 2. 🛡️ Check quyền Admin: Lấy thông tin NÓNG hổi thẳng từ Database!
+    const currentUser = await User.findById(userId);
+    const isAdmin = currentUser && currentUser.role && currentUser.role.toLowerCase() === "admin";
 
-    if (!isProjectLeader && !isAdmin) {
+    // Nếu KHÔNG PHẢI chủ dự án VÀ CŨNG KHÔNG PHẢI Admin -> Đá văng ra ngoài!
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ message: "Access denied. Only the owner or Admin can update this project." });
     }
 
-    const updatedProject = await Project.findByIdAndUpdate(id, updateData, { new: true });
+    const updatedProject = await Project.findByIdAndUpdate(id, req.body, { new: true });
 
     // Ghi log nếu có đổi status
-    if (updateData.status && updateData.status !== project.status) {
-      // Nhớ import logActivity nếu chưa có
-      await logActivity(userId, `changed project status to ${updateData.status}`, project.name);
+    if (req.body.status && req.body.status !== project.status) {
+      await logActivity(userId, `changed project status to ${req.body.status}`, project.name);
     }
 
     res.json(updatedProject);
   } catch (error) {
+    console.error("Lỗi Update Project:", error);
     res.status(500).json({ message: error.message });
   }
 };

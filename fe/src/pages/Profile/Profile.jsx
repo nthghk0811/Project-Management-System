@@ -91,10 +91,15 @@ export default function Profile() {
 
                 <h1 className="text-2xl font-bold text-slate-800 mt-2">{profile.fullName}</h1>
                 
-                {/* HIỂN THỊ JOB TITLE TỪ DATABASE */}
-                <p className="text-sm font-bold text-blue-600 mt-2 uppercase tracking-wider bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                  {profile.jobTitle || "Team Member"}
-                </p>
+                {profile.role === 'admin' ? (
+                  <p className="text-sm font-bold text-rose-600 mt-2 uppercase tracking-wider bg-rose-50 px-3 py-1 rounded-full border border-rose-100 shadow-sm">
+                    Leader
+                  </p>
+                ) : (
+                  <p className="text-sm font-bold text-blue-600 mt-2 uppercase tracking-wider bg-blue-50 px-3 py-1 rounded-full border border-blue-100 shadow-sm">
+                    Team Member
+                  </p>
+                )}
                 
                 {profile.location && (
                   <p className="text-sm text-slate-500 mt-4 flex items-center justify-center bg-slate-50 w-full py-2 rounded-lg">

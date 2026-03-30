@@ -27,7 +27,7 @@ export const authToken = (req, res, next) => {
 
 export const adminAuth = (req, res, next) => {
   // Giả sử sau khi đi qua authToken middleware, req.user đã có data
-  if (req.user && (req.user.role === "admin")) {
+  if (req.user && (req.user.role.toLowerCase() === "admin")) {
     next(); // Cho phép đi tiếp vào Controller
   } else {
     res.status(403).json({ message: "Access denied. Only Admins/Leaders can perform this action." });

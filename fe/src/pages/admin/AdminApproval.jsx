@@ -77,7 +77,7 @@ export default function AdminApproval() {
     if (activeTab === 'users' && users.length === 0) fetchUsers(); 
   }, [activeTab]);
 
-  // Reset về trang 1 nếu sếp gõ search hoặc đổi bộ lọc
+  // Reset về trang 1 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchUser, roleFilter]);

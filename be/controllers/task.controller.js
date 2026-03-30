@@ -18,6 +18,12 @@ export const createTask = async (req, res) => {
     
     // === GHI LOG: TẠO TASK ===
     await logActivity(creator, "created task", title);
+
+    // 📢 BẮN SOCKET: Báo cho phòng Project biết có task mới
+    const io = req.app.get("io");
+    if (io) {
+        io.to(projectId.toString()).emit("task_updated", { action: "create", message: "Task mới đã được tạo" });
+    }
     
     res.status(201).json(newTask);
   } catch (err) {
@@ -44,18 +50,26 @@ export const getTasksByProject = async (req, res) => {
 export const deleteTask = async (req, res) => {
   try {
     const taskIds = req.body.ids; 
-    
-    if (!taskIds || !Array.isArray(taskIds)) {
-       return res.status(400).json({ message: "Invalid task IDs provided."});
-    }
+    if (!taskIds || !Array.isArray(taskIds)) return res.status(400).json({ message: "Invalid task IDs provided."});
 
-    // === GHI LOG: TRƯỚC KHI XÓA PHẢI LẤY TÊN TASK ĐỂ GHI LOG ===
     const tasksToDelete = await Task.find({ _id: { $in: taskIds } });
     for (const task of tasksToDelete) {
       await logActivity(req.user.id, "deleted task", task.title);
     }
-
+    
+    // Gom lấy danh sách các Project bị ảnh hưởng để báo tin
+    const projectIds = [...new Set(tasksToDelete.map(t => t.project.toString()))];
+    
     const result = await Task.deleteMany({ _id: { $in: taskIds } });
+
+    // 📢 BẮN SOCKET: Báo cho các phòng bị ảnh hưởng
+    const io = req.app.get("io");
+    if (io) {
+        projectIds.forEach(pId => {
+            io.to(pId).emit("task_updated", { action: "delete", message: "Task đã bị xóa" });
+        });
+    }
+
     res.status(200).json({ message: "Task(s) successfully deleted", deletedCount: result.deletedCount });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -70,12 +84,15 @@ export const updateTask = async (req, res) => {
     
     if (!taskId) return res.status(400).json({ message: "Task ID is required" });
 
-    // Lấy task cũ để so sánh xem user đã thay đổi cái gì
     const oldTask = await Task.findById(taskId);
-
     const updatedTask = await Task.findByIdAndUpdate(taskId, updates, { new: true });
-    
-    // === GHI LOG THÔNG MINH: CHỈ GHI NHỮNG GÌ BỊ THAY ĐỔI ===
+
+    // 📢 BẮN SOCKET: Báo task thay đổi (kéo thả, sửa tên)
+    const io = req.app.get("io");
+    if (io && updatedTask.project) {
+        io.to(updatedTask.project.toString()).emit("task_updated", updatedTask);
+    }
+   
     if (updates.status && updates.status !== oldTask.status) {
       await logActivity(req.user.id, `moved to ${updates.status}`, updatedTask.title);
     }
@@ -124,8 +141,13 @@ export const addTaskComment = async (req, res) => {
       { new: true }
     ).populate("comments.user", "fullName avatar");
 
-    // === GHI LOG: BÌNH LUẬN ===
     await logActivity(userId, "commented on task", task.title);
+
+    // 📢 BẮN SOCKET: Báo có bình luận mới
+    const io = req.app.get("io");
+    if (io && task.project) {
+        io.to(task.project.toString()).emit("task_updated", { action: "comment" });
+    }
 
     res.json(task);
   } catch (err) {
@@ -150,15 +172,20 @@ export const toggleTaskTimer = async (req, res) => {
         timerStartedAt: null,
         timeSpent: (task.timeSpent || 0) + Math.max(0, elapsedSeconds) 
       };
-      // === GHI LOG: DỪNG TIMER ===
       await logActivity(req.user.id, "stopped tracking time on", task.title);
     } else {
       updateData = { isRunning: true, timerStartedAt: new Date() };
-      // === GHI LOG: CHẠY TIMER ===
       await logActivity(req.user.id, "started tracking time on", task.title);
     }
 
     const updatedTask = await Task.findByIdAndUpdate(id, updateData, { new: true });
+    
+    // Bắn Socket báo timer update
+    const io = req.app.get("io");
+    if (io && updatedTask.project) {
+        io.to(updatedTask.project.toString()).emit("task_updated", updatedTask);
+    }
+
     res.json(updatedTask);
   } catch (error) {
     res.status(500).json({ message: error.message });

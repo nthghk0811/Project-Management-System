@@ -4,6 +4,11 @@ import cors from 'cors';
 import helmet from 'helmet';//header security
 import rateLimit from 'express-rate-limit';//limit request
 // import mongoSanitize from 'express-mongo-sanitize';//prevent NoSQL injection
+
+//socket
+import http from 'http'; // Import thêm http có sẵn của Node.js
+import { Server } from 'socket.io';
+
 import express from 'express';
 import authRoute from './routes/auth.route.js';
 import projectRoute from './routes/project.route.js';
@@ -32,6 +37,34 @@ app.use(rateLimit({
 
 app.use(express.json());
 
+const server = http.createServer(app);
+
+// 2. Gắn "Tổng đài" Socket.io lên cái HTTP server đó
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173", // Link Frontend của bác (Vite thường dùng cổng này)
+    methods: ["GET", "POST", "PUT", "DELETE"]
+  }
+});
+
+// 3. Lắng nghe ai đó nhấc máy gọi lên
+io.on("connection", (socket) => {
+  console.log(`🟢 Có người vừa kết nối Socket! ID: ${socket.id}`);
+
+  // Khi 1 user vào xem 1 Project, cho họ vào 1 "Phòng" riêng của Project đó
+  socket.on("join_project_room", (projectId) => {
+    socket.join(projectId);
+    console.log(`User ${socket.id} vừa chui vào phòng Project: ${projectId}`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`🔴 User ${socket.id} vừa ngắt kết nối!`);
+  });
+});
+
+// 4. Lưu cái "Tổng đài" io này vào app để xài ké ở các file Controller
+app.set("io", io);
+
 
 // app.use(mongoSanitize());
 app.use('/api/auth', authRoute)
@@ -48,7 +81,7 @@ await mongoose.connect(process.env.MONGO_URI);
 app.get('/', (req, res) => {
     res.send('Hello World!');
 });
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 export default app;

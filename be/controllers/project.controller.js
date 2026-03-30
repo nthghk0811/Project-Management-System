@@ -1,6 +1,7 @@
 // be/controllers/project.controller.js
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
+import User from "../models/User.js";
 import { logActivity } from "../utils/logger.js";
 import cloudinary from "../config/cloudinary.js";
 
@@ -32,6 +33,9 @@ export const createProject = async (req, res) => {
     await newProject.save();
 
     await logActivity(owner, "created project", name);
+
+    const io = req.app.get("io");
+    if (io) io.emit("project_list_updated");
 
     res.status(201).json(newProject);
   } catch (err) {
@@ -123,6 +127,9 @@ export const deleteProject = async (req, res) => {
     // Khuyến nghị: Xóa luôn các Task thuộc Project này cho sạch Database
     await Task.deleteMany({ project: projectId });
 
+    const io = req.app.get("io");
+    if (io) io.emit("project_list_updated");
+
     res.status(200).json({ message: "Project deleted successfully" });
   } catch (error) {
     console.error("Delete project error:", error);
@@ -160,6 +167,10 @@ export const updateProject = async (req, res) => {
     if (req.body.status && req.body.status !== project.status) {
       await logActivity(userId, `changed project status to ${req.body.status}`, project.name);
     }
+
+    //socket
+    const io = req.app.get("io");
+    io.to(id.toString()).emit("project_updated", { action: "update" });
 
     res.json(updatedProject);
   } catch (error) {
@@ -363,7 +374,10 @@ export const uploadProjectResource = async (req, res) => {
     project.resources.push(newResource);
     await project.save();
 
-    res.json({ message: "Tải lên tài liệu thành công!", resource: newResource });
+    const io = req.app.get("io");
+    io.to(projectId.toString()).emit("project_updated", { action: "upload" });
+
+    res.json({ message: "Tải lên thành công!", resource: newResource });
 
   } catch (error) {
     console.error("Upload Resource Error:", error);

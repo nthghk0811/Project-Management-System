@@ -8,38 +8,12 @@ import Logo from "../../assets/Icon.png";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Header() {
+  // 1. CHỈ DÙNG USEAUTH (Single Source of Truth)
   const { user, logout } = useAuth(); 
+  
   const [openUser, setOpenUser] = useState(false);
   const [openNoti, setOpenNoti] = useState(false);
   const navigate = useNavigate();
-
-  // ==== FIX LỖI "MẤT TRÍ NHỚ" CỦA AVATAR ====
-  // Khởi tạo state bằng cách check LocalStorage TRƯỚC TIÊN
-  const [displayUser, setDisplayUser] = useState(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : user;
-  });
-
-  // 1. Cập nhật lại nếu Context thay đổi (ví dụ: Logout)
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setDisplayUser(JSON.parse(storedUser));
-    } else {
-      setDisplayUser(user);
-    }
-  }, [user]);
-
-  // 2. Lắng nghe event update ngay tại chỗ (khi đang ở chung 1 trang)
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const updatedUser = JSON.parse(localStorage.getItem("user"));
-      if (updatedUser) setDisplayUser(updatedUser);
-    };
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-  // ===========================================
 
   // ==== SEARCH STATES ====
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -56,8 +30,8 @@ export default function Header() {
   const [notifications, setNotifications] = useState([]);
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  // Dùng displayUser để check quyền cho chính xác
-  const isLeader = displayUser?.role === "Admin" || displayUser?.role === "Leader" || displayUser?.role?.toLowerCase() === "admin";
+  // Dùng trực tiếp 'user' từ Context để check quyền
+  const isLeader = user?.role === "Admin" || user?.role === "Leader" || user?.role?.toLowerCase() === "admin";
 
   useEffect(() => {
     fetchNotifications();
@@ -318,17 +292,17 @@ export default function Header() {
         <div>
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { setOpenUser(!openUser); setOpenNoti(false); setIsSearchOpen(false); }}>
             <div className="text-right hidden md:block">
-              <p className="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">{displayUser?.fullName}</p>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{displayUser?.jobTitle || displayUser?.role || 'Member'}</p>
+              <p className="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition">{user?.fullName}</p>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{user?.jobTitle || user?.role || 'Member'}</p>
             </div>
-            <img src={displayUser?.avatar || `https://ui-avatars.com/api/?name=${displayUser?.fullName || 'User'}&background=0D8ABC&color=fff`} alt="avatar" className="w-10 h-10 rounded-full object-cover border-2 border-slate-100 shadow-sm group-hover:border-blue-200 transition" />
+            <img src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.fullName || 'User'}&background=0D8ABC&color=fff`} alt="avatar" className="w-10 h-10 rounded-full object-cover border-2 border-slate-100 shadow-sm group-hover:border-blue-200 transition" />
           </div>
 
           {openUser && (
             <div className="absolute right-0 top-12 mt-2 w-60 bg-white shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] rounded-2xl border border-slate-100 z-50 overflow-hidden animate-fade-in-up">
               <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-                <p className="text-sm font-bold text-slate-800 truncate">{displayUser?.fullName}</p>
-                <p className="text-xs font-medium text-slate-500 truncate mt-0.5">{displayUser?.email}</p>
+                <p className="text-sm font-bold text-slate-800 truncate">{user?.fullName}</p>
+                <p className="text-xs font-medium text-slate-500 truncate mt-0.5">{user?.email}</p>
               </div>
               <div className="py-2">
                 <Link to="/profile" onClick={() => setOpenUser(false)} className="flex items-center px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition">Public Profile</Link>

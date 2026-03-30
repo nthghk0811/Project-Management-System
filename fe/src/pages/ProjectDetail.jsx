@@ -7,6 +7,8 @@ import Sidebar from "../components/layout/Sidebar";
 import { getProjectByIdApi, updateProjectApi, uploadProjectResourceApi } from "../api/projectApi"; // THÊM API UPLOAD
 import { getTasksByProjectApi, createTaskApi, deleteTaskApi, updateTaskApi } from "../api/taskApi"; 
 
+import { io } from "socket.io-client";
+
 export default function ProjectDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -52,6 +54,29 @@ export default function ProjectDetail() {
       setIsLoading(false);
     }
   };
+  useEffect(() => {
+    const socket = io("http://localhost:8080"); 
+
+    socket.on("connect", () => {
+      socket.emit("join_project_room", id); 
+    });
+
+    // Bất cứ khi nào Task biến động (Thêm/Sửa/Xóa)
+    socket.on("task_updated", () => {
+      console.log("🔥 Có người vừa tác động vào Task!");
+      fetchData(); // Tự động load lại data
+    });
+
+    // Bất cứ khi nào Project biến động (Đổi tên, đổi status, up file)
+    socket.on("project_updated", () => {
+      console.log("🔥 Có người vừa thay đổi Dự Án!");
+      fetchData(); // Tự động load lại data
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [id]);
 
   useEffect(() => {
     fetchData();

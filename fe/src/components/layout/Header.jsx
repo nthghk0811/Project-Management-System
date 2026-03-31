@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { globalSearchApi } from "../../api/searchApi";
 import { io } from "socket.io-client";
 import { getNotificationsApi, markNotificationReadApi, markAllNotificationsReadApi } from "../../api/notificationApi"; 
-import Logo from "../../assets/Icon.png";
+// ĐÃ XÓA IMPORT LOGO BẰNG ẢNH ĐỂ DÙNG CSS THUẦN
 import { formatDistanceToNow } from "date-fns";
 
 export default function Header() {
@@ -81,8 +81,6 @@ export default function Header() {
       console.log("🔔 Có thông báo từ Sếp tổng!");
       // Nhét thẳng thông báo mới tinh này vào đầu danh sách (Không cần gọi API tốn tài nguyên)
       setNotifications((prevNotifs) => [newNoti, ...prevNotifs]);
-      
-      
     });
 
     return () => {
@@ -146,13 +144,16 @@ export default function Header() {
   return (
     <div className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-6 relative z-[60]">
       
-      {/* 1. LOGO */}
+      {/* 1. LOGO ĐÃ ĐƯỢC ĐỒNG BỘ CSS VỚI TRANG HOME */}
       <div className="flex items-center w-64">
         <Link 
           to={isLeader ? "/admin/dashboard" : "/dashboard"} 
-          className="flex items-center hover:opacity-80 transition"
+          className="flex items-center space-x-2 hover:opacity-80 transition"
         >
-          <img src={Logo} alt="Logo" className="h-10" />
+          <div className="w-8 h-8 bg-[#0b57d0] rounded-lg flex items-center justify-center shadow-sm">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+          </div>
+          <span className="text-xl font-bold text-[#1B2559] tracking-tight">SyncBoard</span>
         </Link>
       </div>
 
@@ -314,11 +315,11 @@ export default function Header() {
                 )}
               </div>
               <div 
-  onClick={handleMarkAllRead} 
-  className="px-4 py-2 border-t border-slate-100 text-center bg-slate-50 hover:bg-slate-100 cursor-pointer transition"
->
-  <span className="text-xs font-bold text-blue-600">Mark all as read</span>
-</div>
+                onClick={handleMarkAllRead} 
+                className="px-4 py-2 border-t border-slate-100 text-center bg-slate-50 hover:bg-slate-100 cursor-pointer transition"
+              >
+                <span className="text-xs font-bold text-blue-600">Mark all as read</span>
+              </div>
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import {BrowserRouter, Routes, Route, useLocation} from 'react-router-dom'
+import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
@@ -39,6 +40,7 @@ function PageWrapper({ children }) {
 function AppRoutes() {
   return (
         <Routes>
+          <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={ <ProtectedRoute><Dashboard /></ProtectedRoute> }  />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

@@ -1,7 +1,7 @@
 import express from "express"
 import cloudinary, { uploadLocal } from '../config/cloudinary.js';
-import { getProfile, updateProfile, changePassword, getAllUsersAdmin, updateUserRole, deleteUser} from '../controllers/user.controller.js'
-import {authToken} from '../middlewares/auth.middleware.js'
+import { getProfile, updateProfile, changePassword, getAllUsersAdmin, updateUserRole, deleteUser, createUser} from '../controllers/user.controller.js'
+import {authToken, adminAuth} from '../middlewares/auth.middleware.js'
 import User from '../models/User.js';
 
 const router = express.Router();
@@ -44,8 +44,9 @@ router.put("/change-password", authToken, changePassword);
 
 
 
-router.get("/admin/all", authToken, getAllUsersAdmin);
-router.put("/admin/:id/role", authToken, updateUserRole);
-router.delete("/admin/:id", authToken, deleteUser);
+router.get("/admin/all", authToken, adminAuth, getAllUsersAdmin);
+router.put("/admin/:id/role", authToken, adminAuth, updateUserRole);
+router.delete("/admin/:id", authToken, adminAuth, deleteUser);
+router.post("/", authToken, adminAuth, createUser);
 
 export default router

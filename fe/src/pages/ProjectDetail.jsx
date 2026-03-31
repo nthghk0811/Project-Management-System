@@ -4,9 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
-import { getProjectByIdApi, updateProjectApi, uploadProjectResourceApi } from "../api/projectApi"; // THÊM API UPLOAD
+import { getProjectByIdApi, updateProjectApi, uploadProjectResourceApi, removeMemberFromProjectApi } from "../api/projectApi";
 import { getTasksByProjectApi, createTaskApi, deleteTaskApi, updateTaskApi } from "../api/taskApi"; 
-
 import { io } from "socket.io-client";
 
 export default function ProjectDetail() {
@@ -16,28 +15,57 @@ export default function ProjectDetail() {
   const [tasks, setTasks] = useState([]); 
   const [isLoading, setIsLoading] = useState(true);
   
-  // THÊM VIEW MODE 'resources'
-  const [viewMode, setViewMode] = useState("kanban"); // 
+  const [viewMode, setViewMode] = useState("kanban"); 
 
-  // Modal and Editing States
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState("medium");
   const [newTaskAssignee, setNewTaskAssignee] = useState(""); 
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editTitleValue, setEditTitleValue] = useState("");
+
+  const [kickConfirm, setKickConfirm] = useState({ show: false, userId: null, userName: "" });
   
-  // Dropdown and Complete Modal States
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
-  // ==== STATES CHO UPLOAD RESOURCES ====
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const fileInputRef = useRef(null);
 
-  // CHECK QUYỀN LEADER/ADMIN
-  // const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isLeader = user?.role?.toLowerCase() === "admin" || project?.owner === user?._id || project?.owner?._id === user?._id;
+  const [showTeamModal, setShowTeamModal] = useState(false); 
+
+  // ==== THÊM HỆ THỐNG TOAST MESSAGE XỊN XÒ ====
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const initiateKickMember = (userId, userName) => {
+    setKickConfirm({ show: true, userId, userName });
+  };
+
+  // 2. Hàm này là LÚC BẤM NÚT XÁC NHẬN trong Popup
+  const executeKickMember = async () => {
+    const { userId, userName } = kickConfirm;
+    if (!userId) return;
+
+    try {
+      await removeMemberFromProjectApi(id, userId);
+      // Xóa ngay avatar trên UI
+      setProject(prev => ({
+        ...prev,
+        members: prev.members.filter(m => m._id !== userId)
+      }));
+      showToast(`Successfully removed ${userName}!`);
+    } catch (error) {
+      showToast(error.response?.data?.message || "Error removing members", "error");
+    } finally {
+      // Đóng Popup sau khi xử lý xong (dù lỗi hay thành công)
+      setKickConfirm({ show: false, userId: null, userName: "" });
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -50,10 +78,12 @@ export default function ProjectDetail() {
       setTasks(tasksRes.data);
     } catch (error) {
       console.error("Error fetching project details", error);
+      showToast("Không thể tải dữ liệu dự án.", "error");
     } finally {
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
     const socket = io("http://localhost:8080"); 
 
@@ -61,16 +91,12 @@ export default function ProjectDetail() {
       socket.emit("join_project_room", id); 
     });
 
-    // Bất cứ khi nào Task biến động (Thêm/Sửa/Xóa)
     socket.on("task_updated", () => {
-      console.log("🔥 Có người vừa tác động vào Task!");
-      fetchData(); // Tự động load lại data
+      fetchData(); 
     });
 
-    // Bất cứ khi nào Project biến động (Đổi tên, đổi status, up file)
     socket.on("project_updated", () => {
-      console.log("🔥 Có người vừa thay đổi Dự Án!");
-      fetchData(); // Tự động load lại data
+      fetchData(); 
     });
 
     return () => {
@@ -88,19 +114,11 @@ export default function ProjectDetail() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); 
   };
 
-  // HÀM ÉP TẢI FILE VỀ MÁY (Tránh bị Cloudinary block PDF/ZIP)
   const getDownloadUrl = (url, type) => {
     if (!url) return "#";
-    // Nếu là ảnh thì cứ mở bình thường trên tab mới
     if (type === 'image') return url; 
-    
-    // Nếu là tài liệu, chèn cờ fl_attachment vào URL
-    if (url.includes('/image/upload/')) {
-      return url.replace('/image/upload/', '/image/upload/fl_attachment/');
-    }
-    if (url.includes('/raw/upload/')) {
-      return url.replace('/raw/upload/', '/raw/upload/fl_attachment/');
-    }
+    if (url.includes('/image/upload/')) return url.replace('/image/upload/', '/image/upload/fl_attachment/');
+    if (url.includes('/raw/upload/')) return url.replace('/raw/upload/', '/raw/upload/fl_attachment/');
     return url;
   };
 
@@ -119,13 +137,13 @@ export default function ProjectDetail() {
       try {
         await updateProjectApi(project._id, { status: 'In Progress' });
         setProject(prev => ({ ...prev, status: 'In Progress' }));
+        showToast("Dự án đã tự động chuyển sang In Progress!");
       } catch (error) {
         console.error("Failed to auto-update project status", error);
       }
     }
   };
 
-  // --- ACTIONS ---
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
@@ -147,9 +165,10 @@ export default function ProjectDetail() {
       setNewTaskAssignee(""); 
       setShowTaskModal(false);
       fetchData(); 
+      showToast("Tạo nhiệm vụ thành công!");
     } catch (error) {
       console.error("Error creating task:", error);
-      alert("Failed to create task.");
+      showToast("Lỗi khi tạo nhiệm vụ.", "error");
     }
   };
 
@@ -158,9 +177,10 @@ export default function ProjectDetail() {
     try {
       await deleteTaskApi([taskId]); 
       fetchData(); 
+      showToast("Task deleted successful!");
     } catch (error) {
        console.error("Error deleting task:", error);
-       alert("Failed to delete task.");
+       showToast("Error deleting task.", "error");
     }
   };
 
@@ -173,7 +193,7 @@ export default function ProjectDetail() {
       await updateTaskApi(taskId, updatePayload);
       await autoStartProjectIfNeeded(newStatus); 
       fetchData(); 
-    } catch (error) { console.error("Error updating status", error); }
+    } catch (error) { showToast("Error updating status", "error"); }
   };
 
   const handleSaveEdit = async (taskId) => {
@@ -181,7 +201,8 @@ export default function ProjectDetail() {
          await updateTaskApi(taskId, { title: editTitleValue });
          setEditingTaskId(null);
          fetchData();
-      } catch (error) { console.error("Error updating task title", error); }
+         showToast("Saved!");
+      } catch (error) { showToast("Lỗi khi đổi tên.", "error"); }
   };
 
   const handleStatusSelect = (newStatus) => {
@@ -191,7 +212,7 @@ export default function ProjectDetail() {
     if (newStatus === 'Completed') {
       const hasIncompleteTasks = tasks.some(t => t.status !== 'Done');
       if (hasIncompleteTasks) {
-        alert("⚠️ Cannot complete project!\nAll tasks must be moved to 'Done' before the project can be marked as complete.");
+        showToast("All tasks need to be done before complete!", "error");
         return;
       }
       setShowCompleteConfirm(true);
@@ -205,7 +226,8 @@ export default function ProjectDetail() {
       await updateProjectApi(project._id, { status: newStatus });
       setProject({ ...project, status: newStatus });
       setShowCompleteConfirm(false);
-    } catch (error) { alert("Failed to update project status."); }
+      showToast(`Update status to ${newStatus}`);
+    } catch (error) { showToast("Lỗi cập nhật trạng thái dự án.", "error"); }
   };
 
   const handleDrop = async (e, newStatus) => {
@@ -227,19 +249,17 @@ export default function ProjectDetail() {
       await autoStartProjectIfNeeded(newStatus);
       fetchData(); 
     } catch (error) {
-      console.error("Error updating status on drop", error);
+      showToast("Lỗi khi kéo thả.", "error");
       fetchData();
     }
   };
 
-  // ==== LOGIC UPLOAD TÀI LIỆU ====
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Giới hạn file 10MB
     if (file.size > 10 * 1024 * 1024) {
-      alert("File is too large! Maximum allowed size is 10MB.");
+      showToast("Too large!(<10mb)", "error");
       return;
     }
 
@@ -249,17 +269,16 @@ export default function ProjectDetail() {
     try {
       setIsUploadingFile(true);
       const res = await uploadProjectResourceApi(project._id, formData);
-      // Nối file mới vào danh sách hiện tại để thấy ngay mà không cần reload trang
       setProject(prev => ({
         ...prev,
         resources: [...(prev.resources || []), res.data.resource]
       }));
+      showToast("Upload documents successful");
     } catch (error) {
-      console.error("Error uploading file:", error);
-      alert(error.response?.data?.message || "Failed to upload file. Please try again.");
+      showToast(error.response?.data?.message || "Lỗi tải file lên.", "error");
     } finally {
       setIsUploadingFile(false);
-      if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -292,8 +311,6 @@ export default function ProjectDetail() {
       return "00:00"; 
   };
 
-  // ================= RENDER VIEWS =================
-  
   const renderListView = () => (
       <div className="space-y-3">
         {tasks.length === 0 ? (
@@ -433,13 +450,11 @@ export default function ProjectDetail() {
     );
   };
 
-  // ==== RENDER TÀI NGUYÊN (RESOURCES) ====
   const renderResourcesView = () => {
     const resources = project.resources || [];
     
     return (
       <div className="h-full flex flex-col">
-        {/* NÚT UPLOAD ẨN (Chỉ Sếp mới được xài) */}
         {isLeader && !isProjectCompleted && (
           <div className="mb-6 flex justify-end">
              <input 
@@ -469,7 +484,6 @@ export default function ProjectDetail() {
           </div>
         )}
 
-        {/* LƯỚI TÀI LIỆU */}
         {resources.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
@@ -483,14 +497,12 @@ export default function ProjectDetail() {
             {resources.map((file, idx) => (
               <a 
                 key={idx} 
-                // BỌC HÀM GET DOWNLOAD VÀO ĐÂY:
                 href={getDownloadUrl(file.url, file.type)} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                download // Bổ sung cờ download của HTML5
+                download 
                 className="group bg-white border border-slate-200 rounded-2xl p-4 hover:shadow-lg hover:border-blue-300 transition-all flex flex-col h-48"
               >
-                {/* ICON THỂ HIỆN LOẠI FILE */}
                 <div className="flex-1 flex items-center justify-center bg-slate-50 rounded-xl mb-4 group-hover:bg-blue-50/50 transition">
                   {file.type === 'image' ? (
                      <svg className="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -498,7 +510,6 @@ export default function ProjectDetail() {
                      <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                   )}
                 </div>
-                {/* THÔNG TIN FILE */}
                 <div>
                   <p className="font-bold text-sm text-slate-800 truncate" title={file.name}>{file.name}</p>
                   <div className="flex justify-between items-center mt-2 text-xs text-slate-400 font-medium">
@@ -518,14 +529,21 @@ export default function ProjectDetail() {
   if (!project) return <div className="p-10 text-center text-red-500 font-medium">Project not found.</div>;
 
   return (
-    <div className="bg-[#f4f7fe] min-h-screen font-sans flex flex-col">
+    <div className="bg-[#f4f7fe] min-h-screen font-sans flex flex-col relative">
       <Header />
+
+      {/* TOAST HIỂN THỊ LỖI Ở ĐÂY */}
+      {toast && (
+        <div className={`fixed top-20 right-8 px-6 py-3 rounded-lg shadow-2xl z-[100] animate-fade-in-up font-semibold text-sm flex items-center text-white ${toast.type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'}`}>
+          {toast.msg}
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         
         <div className="flex-1 p-6 lg:p-8 flex flex-col overflow-hidden">
           
-          {/* HEADER DỰ ÁN */}
           <div className="mb-6 bg-white p-6 lg:p-8 rounded-2xl shadow-sm border border-slate-200 shrink-0">
              <div className="text-slate-400 text-sm mb-4 font-bold flex items-center space-x-2">
               <Link to="/projects" className="hover:text-[#0b57d0] transition">Projects</Link> 
@@ -538,8 +556,11 @@ export default function ProjectDetail() {
                 <h1 className="text-2xl md:text-3xl font-bold text-[#1B2559] tracking-tight">{project.name}</h1>
                 <div className="flex items-center mt-4">
                   
-                  {/* AVATAR TEAM */}
-                  <div className="flex -space-x-2 overflow-hidden items-center mr-6">
+                  <div 
+                    className="flex -space-x-2 overflow-hidden items-center mr-6 cursor-pointer hover:opacity-80 transition"
+                    onClick={() => isLeader && setShowTeamModal(true)}
+                    title={isLeader ? "Manage Team (Bấm để quản lý)" : "Team Members"}
+                  >
                     {project.members?.slice(0, 4).map((member, idx) => (
                       <img key={idx} className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover shadow-sm" src={member.avatar || `https://ui-avatars.com/api/?name=${member.fullName}`} alt="Avatar" title={member.fullName}/>
                     ))}
@@ -550,7 +571,6 @@ export default function ProjectDetail() {
                     )}
                   </div>
                   
-                  {/* STATUS DROPDOWN JIRA-STYLE */}
                   <div className="relative">
                     <button
                       onClick={() => !isProjectCompleted && setIsStatusMenuOpen(!isStatusMenuOpen)}
@@ -581,7 +601,6 @@ export default function ProjectDetail() {
                 </div>
               </div>
 
-              {/* TIMELOG & DEADLINE */}
               <div className="flex space-x-6">
                 <div>
                   <div className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-2">Time logged</div>
@@ -602,10 +621,8 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* MAIN BOARD (KANBAN/LIST/RESOURCES) */}
           <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col min-h-0 overflow-hidden">
             
-            {/* BOARD TOOLBAR NÂNG CẤP */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 shrink-0 border-b border-slate-100 pb-4">
               
               <div className="flex items-center space-x-6">
@@ -638,7 +655,6 @@ export default function ProjectDetail() {
                 </button>
               </div>
 
-              {/* CHỈ HIỂN THỊ NÚT CREATE ISSUE KHI ĐANG Ở TAB TASK VÀ DỰ ÁN CHƯA HOÀN THÀNH */}
               {viewMode !== 'resources' && !isProjectCompleted && (
                 <button onClick={() => setShowTaskModal(true)} className="bg-[#0b57d0] text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm flex items-center active:scale-95">
                   <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
@@ -647,7 +663,6 @@ export default function ProjectDetail() {
               )}
             </div>
 
-            {/* BOARD CONTENT */}
             <div className="flex-1 overflow-auto rounded-xl">
                 {viewMode === 'list' && renderListView()}
                 {viewMode === 'kanban' && renderKanbanView()}
@@ -658,9 +673,8 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      {/* ... (GIỮ NGUYÊN CÁC MODAL CREATE TASK VÀ COMPLETE PROJECT CỦA BÁC) ... */}
       {showTaskModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden animate-fade-in-up">
              <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
                 <h3 className="text-lg font-bold text-[#1B2559] flex items-center">
@@ -729,6 +743,79 @@ export default function ProjectDetail() {
             <div className="flex justify-center space-x-3">
               <button onClick={() => setShowCompleteConfirm(false)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition w-full">Cancel</button>
               <button onClick={() => executeStatusUpdate('Completed')} className="px-6 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm transition w-full">Complete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTeamModal && isLeader && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-fade-in-up">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-xl font-bold text-[#1B2559] flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                Manage Team
+              </h3>
+              <button onClick={() => setShowTeamModal(false)} className="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-lg transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            
+            <div className="p-2 max-h-[400px] overflow-y-auto">
+              {project.members?.map(member => {
+                const isProjectOwner = project.owner === member._id || project.owner?._id === member._id;
+
+                return (
+                  <div key={member._id} className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-xl transition">
+                    <div className="flex items-center space-x-3">
+                      <img src={member.avatar || `https://ui-avatars.com/api/?name=${member.fullName}`} className="w-10 h-10 rounded-full object-cover border border-slate-200" alt="avatar" />
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{member.fullName}</p>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{isProjectOwner ? "Project Owner" : "Member"}</p>
+                      </div>
+                    </div>
+                    
+      
+                    {!isProjectOwner && member._id !== user._id && (
+                      <button 
+                        onClick={() => initiateKickMember(member._id, member.fullName)} // ĐỔI TÊN HÀM Ở ĐÂY
+                        className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==== POPUP XÁC NHẬN ĐUỔI NGƯỜI (CENTER MÀN HÌNH) ==== */}
+      {kickConfirm.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm bg-slate-900/50 transition-all">
+          <div className="bg-white rounded-2xl shadow-2xl animate-fade-in-up p-6 max-w-sm w-full text-center border border-slate-100">
+            <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+              <svg className="w-8 h-8 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Xác nhận đuổi?</h3>
+            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+              Remove <strong>{kickConfirm.userName}</strong> from project? All <strong>{kickConfirm.userName}</strong> tasks will be removed!
+            </p>
+            <div className="flex justify-center space-x-3">
+              <button 
+                onClick={() => setKickConfirm({ show: false, userId: null, userName: "" })} 
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition w-full"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={executeKickMember} 
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-sm transition w-full active:scale-95"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>

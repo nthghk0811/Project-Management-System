@@ -116,3 +116,49 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const createUser = async (req, res) => {
+  try {
+    const { fullName, email, password, role, jobTitle } = req.body;
+
+    // 1. Kiểm tra xem email đã bị thằng nào dùng chưa
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email này đã tồn tại trong hệ thống!" });
+    }
+
+    // 2. Băm nát cái Password ra cho bảo mật (giống lúc Register)
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // 3. Tạo tài khoản mới với các field chuẩn chỉ
+    const newUser = new User({
+      fullName,
+      email,
+      password: hashedPassword,
+      role: role ? role.toLowerCase() : "member", // Mặc định là member nếu không có role hoặc role không hợp lệ
+      jobTitle: jobTitle || "Team Member",
+      // Avatar mượn tạm UI-Avatars cho nó chuyên nghiệp
+      avatar: `https://ui-avatars.com/api/?name=${fullName.replace(/ /g, '+')}&background=0D8ABC&color=fff`
+    });
+
+    await newUser.save();
+
+    // 4. Trả về cục data sạch sẽ (Tuyệt đối KHÔNG trả về password)
+    const userResponse = {
+      _id: newUser._id,
+      fullName: newUser.fullName,
+      email: newUser.email,
+      role: newUser.role,
+      jobTitle: newUser.jobTitle,
+      avatar: newUser.avatar,
+      createdAt: newUser.createdAt,
+      lastLogin: null // Mới tạo nên chưa login bao giờ
+    };
+
+    res.status(201).json({ message: "Tạo tài khoản thành công!", user: userResponse });
+  } catch (error) {
+    console.error("Lỗi tạo user:", error);
+    res.status(500).json({ message: "Lỗi server khi tạo tài khoản." });
+  }
+};

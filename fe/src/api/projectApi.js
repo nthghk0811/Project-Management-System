@@ -110,3 +110,11 @@ export const uploadProjectResourceApi = (projectId, formData) => {
     },
   });
 };
+
+
+export const removeMemberFromProjectApi = (projectId, userId) => {
+  const token = localStorage.getItem("token");
+  return axios.delete(`${API}/${projectId}/members/${userId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+};

@@ -384,3 +384,52 @@ export const uploadProjectResource = async (req, res) => {
     res.status(500).json({ message: "Lỗi server khi upload tài liệu" });
   }
 };
+
+
+
+export const removeMemberFromProject = async (req, res) => {
+  try {
+    const { id, userId } = req.params; // id là Project ID
+    const requesterId = req.user.id;
+    const requesterRole = req.user.role ? req.user.role.toLowerCase() : "";
+
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: "Không tìm thấy dự án!" });
+
+    // 1. Phân quyền: Chỉ Admin hoặc Project Owner mới được đuổi người
+    const isOwner = project.owner.toString() === requesterId;
+    const isAdmin = requesterRole === "admin" || requesterRole === "leader";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: "Chỉ Admin hoặc Chủ dự án mới có quyền này!" });
+    }
+
+    // Không ai được phép đuổi Chủ dự án (Owner)
+    if (project.owner.toString() === userId) {
+      return res.status(400).json({ message: "Không thể đuổi Chủ dự án ra khỏi dự án của chính họ!" });
+    }
+
+    // 2. Trục xuất khỏi mảng members
+    await Project.findByIdAndUpdate(id, { $pull: { members: userId } });
+
+    // 3. Tịch thu công việc: Gỡ assign toàn bộ Task của thanh niên này trong dự án
+    await Task.updateMany(
+      { project: id, assignee: userId },
+      { $set: { assignee: null } }
+    );
+
+    // 4. Ghi Log
+    await logActivity(requesterId, "removed a member from", project.name);
+
+    // 5. 📢 BẮN SOCKET: Báo cho mọi người trong phòng biết sự biến động
+    const io = req.app.get("io");
+    if (io) {
+      io.to(id.toString()).emit("project_updated", { action: "remove_member" });
+      io.to(id.toString()).emit("task_updated", { action: "unassigned_tasks" }); // Load lại task vì bị gỡ assign
+    }
+
+    res.json({ message: "Đã đuổi thành viên khỏi dự án thành công!" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

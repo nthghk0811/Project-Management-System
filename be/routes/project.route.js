@@ -13,7 +13,8 @@ import {
   approveLeaveRequest,
   rejectLeaveRequest,
   getPendingRequests,
-  uploadProjectResource
+  uploadProjectResource,
+  removeMemberFromProject
 
 } from "../controllers/project.controller.js";
 import { uploadLocal } from "../config/cloudinary.js";
@@ -38,5 +39,6 @@ router.get("/", authToken, getMyProjects);
 router.get("/:id", authToken, getProjectById);
 router.put("/:id", authToken, updateProject); // Route để cập nhật dự án
 router.post('/:id/resources', authToken, uploadLocal.single('file'), uploadProjectResource);
+router.delete("/:id/members/:userId", authToken, removeMemberFromProject);
 
 export default router;

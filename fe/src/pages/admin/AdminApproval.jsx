@@ -8,7 +8,7 @@ import { io } from "socket.io-client";
 import {getAllSupportTicketsApi} from "../../api/supportApi";
 
 import { getMyProjectsApi, getPendingRequestsApi, approveJoinRequestApi, rejectJoinRequestApi, approveLeaveRequestApi, rejectLeaveRequestApi } from "../../api/projectApi";
-import { getAllUsersApi, updateUserRoleApi, deleteUserApi } from "../../api/userApi"; 
+import { getAllUsersApi, updateUserRoleApi, deleteUserApi, createUserApi } from "../../api/userApi"; 
 
 export default function AdminApproval() {
   const { user } = useAuth(); // Lấy thông tin người đang đăng nhập
@@ -101,6 +101,30 @@ export default function AdminApproval() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchUser, roleFilter]);
+
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    fullName: "", email: "", password: "", role: "Member", jobTitle: ""
+  });
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      setIsCreatingUser(true);
+      const res = await createUserApi(newUserForm);
+      // Nhét thằng user mới tinh này vào ĐẦU danh sách để Sếp thấy ngay
+      setUsers([res.data.user, ...users]); 
+      showToast(res.data.message || "User created successfully!");
+      
+      // Đóng modal & Reset form
+      setShowAddUserModal(false);
+      setNewUserForm({ fullName: "", email: "", password: "", role: "Member", jobTitle: "" });
+    } catch (error) {
+      showToast(error.response?.data?.message || "Failed to create user", "error");
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
 
   //socket
   useEffect(() => {
@@ -291,6 +315,13 @@ export default function AdminApproval() {
                     <option value="admin">Admin</option>
                     <option value="Member">Member</option>
                   </select>
+                  <button 
+                  onClick={() => setShowAddUserModal(true)}
+                  className="bg-[#0b57d0] text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 shadow-sm transition active:scale-95 flex items-center w-full sm:w-auto justify-center"
+                >
+                  <svg className="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                  Add New Member
+                </button>
                 </div>
               </div>
 
@@ -488,6 +519,61 @@ export default function AdminApproval() {
           )}
         </div>
       </div>
+
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in-up">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-xl font-bold text-[#1B2559] flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                Create New Member
+              </h3>
+              <button onClick={() => setShowAddUserModal(false)} className="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-lg transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateUser} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Full Name</label>
+                <input type="text" required placeholder="E.g. Nguyen Van A" value={newUserForm.fullName} onChange={(e) => setNewUserForm({...newUserForm, fullName: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm font-bold text-slate-800 transition" />
+              </div>
+              
+              <div>
+                <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Email Address</label>
+                <input type="email" required placeholder="E.g. nv.a@company.com" value={newUserForm.email} onChange={(e) => setNewUserForm({...newUserForm, email: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm font-bold text-slate-800 transition" />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Temporary Password</label>
+                <input type="password" required placeholder="Minimum 6 characters" minLength={6} value={newUserForm.password} onChange={(e) => setNewUserForm({...newUserForm, password: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm font-bold text-slate-800 transition" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Role</label>
+                  <select value={newUserForm.role} onChange={(e) => setNewUserForm({...newUserForm, role: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm font-bold text-slate-700 cursor-pointer transition">
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[13px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Job Title</label>
+                  <input type="text" placeholder="E.g. Developer, Designer" value={newUserForm.jobTitle} onChange={(e) => setNewUserForm({...newUserForm, jobTitle: e.target.value})} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm font-bold text-slate-800 transition" />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-6 border-t border-slate-100 mt-2">
+                <button type="button" onClick={() => setShowAddUserModal(false)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+                <button type="submit" disabled={isCreatingUser} className={`px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition flex items-center ${isCreatingUser ? 'bg-blue-400 cursor-not-allowed' : 'bg-[#0b57d0] hover:bg-blue-700 active:scale-95'}`}>
+                  {isCreatingUser ? "Creating..." : "Create Account"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
+    
   );
 }

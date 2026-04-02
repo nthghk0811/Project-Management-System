@@ -9,6 +9,7 @@ import { getNotificationsApi, markNotificationReadApi, markAllNotificationsReadA
 import { formatDistanceToNow } from "date-fns";
 
 export default function Header() {
+  const api = import.meta.env.VITE_API_URL;
   // 1. CHỈ DÙNG USEAUTH (Single Source of Truth)
   const { user, logout } = useAuth(); 
   
@@ -68,7 +69,7 @@ export default function Header() {
   };
 
   useEffect(() => {
-    const socket = io("http://localhost:8080"); 
+    const socket = io(`${api}`);
 
     socket.on("connect", () => {
       if (user?._id) {

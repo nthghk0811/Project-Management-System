@@ -27,7 +27,14 @@ export default function Login() {
       await login(form);
       
       showToast("Login successful! Welcome back.", "success");
-      setTimeout(() => navigate("/dashboard"), 1000);
+      //check role, if admin thì redirect sang admin page, else redirect sang dashboard
+      setTimeout(() => {
+        if (user?.role.toLowerCase() === "admin") {
+          navigate("/admin/dashboard", { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      }, 1000);
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Login failed. Please check your credentials.";
       showToast(errorMsg, "error");

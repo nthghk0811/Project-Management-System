@@ -31,3 +31,39 @@ To run this project locally, you will need Node.js, MongoDB, and Redis installed
 ```bash
 git clone https://github.com/nthghk0811/Project-Management-System
 cd Project-Management-System
+
+### 2. ⚙️ Backend Setup
+Open a new terminal, navigate to /be, and install the libraries:
+```bash
+cd be
+npm install
+
+Create a .env file in the directory and fill in your security settings:
+
+PORT=8080
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
+REDIS_URL=your_redis_url
+CLOUDINARY_URL=your_cloudinary_url
+CLIENT_URL=http://localhost:5173
+
+Run Backend server:
+
+npm run dev
+
+3. 🎨 Frontend Setup
+
+Open another terminal, return to the root directory, and then navigate to the frontend directory:
+cd ../fe
+npm install
+
+Create a .env file in the fe directory to connect to the local backend:
+VITE_API_URL=http://localhost:8080
+
+📸 Screenshots
+![Admin Dashboard](image.png)
+![User Dashboard](image-1.png)
+
+👨‍💻 Author
+Nguyen Hoang Hai
+GitHub: @nthghk0811

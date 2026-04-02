@@ -1,7 +1,7 @@
 // fe/src/api/notificationApi.js
 import axios from "axios";
 
-const API = "http://localhost:8080/api/notifications"; // Chỉnh đúng port backend của bác
+const API = process.env.REACT_APP_API_URL + "/api/notifications";
 
 export const getNotificationsApi = () => {
   const token = localStorage.getItem("token");

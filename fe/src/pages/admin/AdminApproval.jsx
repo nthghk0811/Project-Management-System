@@ -11,6 +11,8 @@ import { getMyProjectsApi, getPendingRequestsApi, approveJoinRequestApi, rejectJ
 import { getAllUsersApi, updateUserRoleApi, deleteUserApi, createUserApi } from "../../api/userApi"; 
 
 export default function AdminApproval() {
+  const api = process.env.REACT_APP_API_URL;
+
   const { user } = useAuth(); // Lấy thông tin người đang đăng nhập
   const [activeTab, setActiveTab] = useState("approvals"); 
 
@@ -27,7 +29,7 @@ export default function AdminApproval() {
 
   // ==== PAGINATION STATES ====
   const [currentPage, setCurrentPage] = useState(1);
-  const usersPerPage = 5; // Bác có thể đổi thành 10 hoặc 20 tùy ý
+  const usersPerPage = 5; 
 
   // ==== GLOBAL TOAST ====
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
@@ -112,7 +114,7 @@ export default function AdminApproval() {
     try {
       setIsCreatingUser(true);
       const res = await createUserApi(newUserForm);
-      // Nhét thằng user mới tinh này vào ĐẦU danh sách để Sếp thấy ngay
+     
       setUsers([res.data.user, ...users]); 
       showToast(res.data.message || "User created successfully!");
       
@@ -128,7 +130,7 @@ export default function AdminApproval() {
 
   //socket
   useEffect(() => {
-    const socket = io("http://localhost:8080"); 
+    const socket = io(`${api}`);
 
     socket.on("new_support_ticket", (newTicket) => {
       console.log("🔥 Có nhân viên vừa kêu cứu!");

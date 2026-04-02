@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API = "http://localhost:8080/api/support";
+const API = process.env.REACT_APP_API_URL + "/api/support";
+
 
 export const createSupportTicketApi = (data) => {
   const token = localStorage.getItem("token");

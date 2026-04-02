@@ -9,6 +9,8 @@ import rateLimit from 'express-rate-limit';//limit request
 import http from 'http'; // Import thêm http có sẵn của Node.js
 import { Server } from 'socket.io';
 
+import { connectRedis } from './config/redis.js';
+
 import express from 'express';
 import authRoute from './routes/auth.route.js';
 import projectRoute from './routes/project.route.js';
@@ -82,6 +84,22 @@ app.use('/api/notifications', notificationRoute)
 app.use('/api/support', supportRoute)
 
 await mongoose.connect(process.env.MONGO_URI);
+const startServer = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("Connected to MongoDB");
+    
+    await connectRedis(); // 👈 THIẾU DÒNG NÀY LÀ REDIS NẰM CHẾT LÂM SÀNG!
+    
+    app.listen(8080, () => {
+      console.log("Server is running on port 8080");
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+startServer();
 
 
 

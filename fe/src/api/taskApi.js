@@ -1,7 +1,7 @@
 // fe/src/api/taskApi.js
 import axios from "axios";
 
-const API = "http://localhost:8080/api/tasks";
+const API = process.env.REACT_APP_API_URL + "/api/tasks";
 
 export const getTasksByProjectApi = (projectId) => {
   const token = localStorage.getItem("token");

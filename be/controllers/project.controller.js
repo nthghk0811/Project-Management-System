@@ -37,6 +37,17 @@ export const createProject = async (req, res) => {
     const io = req.app.get("io");
     if (io) io.emit("project_list_updated");
 
+    const redisClient = (await import('../config/redis.js')).default;
+    if (redisClient.isReady) {
+      // Vì "Discover Projects" bị ảnh hưởng bởi tất cả mọi người, 
+      // ta có thể dùng lệnh KEYS để quét và xóa toàn bộ cache có đầu tố này.
+      const keys = await redisClient.keys('discover_projects_*');
+      if (keys.length > 0) {
+         await redisClient.del(keys);
+         console.log(`🧹 [Redis] Đã dọn dẹp ${keys.length} cache rác vì có dự án mới!`);
+      }
+    }
+
     res.status(201).json(newProject);
   } catch (err) {
     console.error("Create Project Error:", err);
@@ -95,6 +106,15 @@ export const getDiscoverProjects = async (req, res) => {
         return { ...project, taskCount };
       })
     );
+
+    const io = req.app.get("io");
+    const redisClient = (await import('../config/redis.js')).default;
+    
+    if (redisClient.isReady) {
+      const cacheKey = `discover_projects_${userId}`;
+      // Lưu vào Redis, set thời gian hết hạn (EX) là 3600 giây (1 tiếng)
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(projectsWithTaskCount));
+    }
     res.json(projectsWithTaskCount);
   } catch (error) {
     res.status(500).json({ message: error.message });

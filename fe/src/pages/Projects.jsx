@@ -6,9 +6,11 @@ import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
 import ProjectCard from "../components/projects/ProjectCard";
 import { getMyProjectsApi, getDiscoverProjectsApi, joinProjectApi, deleteProjectApi, leaveProjectApi, updateProjectApi } from "../api/projectApi";
-import { io } from "socket.io-client"; // 👈 IMPORT SOCKET
+import { io } from "socket.io-client"; 
 
 export default function Projects() {
+const api = process.env.REACT_APP_API_URL;
+
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -47,7 +49,7 @@ export default function Projects() {
 
   // socket
   useEffect(() => {
-    const socket = io("http://localhost:8080"); 
+    const socket = io(`${api}`);
 
     socket.on("connect", () => {
       console.log("Projects Page: Đã kết nối Socket!");

@@ -9,6 +9,9 @@ import { getTasksByProjectApi, createTaskApi, deleteTaskApi, updateTaskApi } fro
 import { io } from "socket.io-client";
 
 export default function ProjectDetail() {
+
+  const api = process.env.REACT_APP_API_URL;
+
   const { id } = useParams();
   const { user } = useAuth();
   const [project, setProject] = useState(null);
@@ -85,7 +88,7 @@ export default function ProjectDetail() {
   };
 
   useEffect(() => {
-    const socket = io("http://localhost:8080"); 
+    const socket = io(`${api}`); 
 
     socket.on("connect", () => {
       socket.emit("join_project_room", id); 

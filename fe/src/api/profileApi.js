@@ -1,11 +1,15 @@
 import axios from "axios";
 
-const API = "http://localhost:8080/api/users/me";
+// Khai báo biến môi trường chung trên đầu file
+const BASE_URL = process.env.REACT_APP_API_URL;
+
+// API cứng cho profile
+const PROFILE_API = `${BASE_URL}/api/users/me`;
 
 export const getProfileApi = () => {
   const token = localStorage.getItem("token");
 
-  return axios.get(API, {
+  return axios.get(PROFILE_API, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -15,19 +19,18 @@ export const getProfileApi = () => {
 export const updateProfileApi = (data) => {
   const token = localStorage.getItem("token");
 
-  return axios.put(API, data, {
+  return axios.put(PROFILE_API, data, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 };
 
-
 export const changePasswordApi = (data) => {
   const token = localStorage.getItem("token");
 
   return axios.put(
-    "http://localhost:8080/api/users/change-password",
+    `${BASE_URL}/api/users/change-password`, // Thay URL cứng bằng biến
     data,
     {
       headers: {
@@ -39,10 +42,11 @@ export const changePasswordApi = (data) => {
 
 export const uploadAvatarApi = (formData) => {
   const token = localStorage.getItem("token");
-  return axios.post("http://localhost:8080/api/users/upload-avatar", formData, {
+  
+  return axios.post(`${BASE_URL}/api/users/upload-avatar`, formData, { // Thay URL cứng bằng biến
     headers: { 
       Authorization: `Bearer ${token}`,
-      "Content-Type": "multipart/form-data" // Bắt buộc phải có dòng này khi up file
+      "Content-Type": "multipart/form-data" 
     },
   });
 };

@@ -19,10 +19,11 @@ import {
 } from "../controllers/project.controller.js";
 import { uploadLocal } from "../config/cloudinary.js";
 import { authToken, adminAuth } from "../middlewares/auth.middleware.js";
+import { cacheDiscoverProjects } from "../middlewares/cache.middleware.js";
 
 const router = express.Router();
 
-router.get("/discover", authToken, getDiscoverProjects); // Route để khám phá dự án
+router.get("/discover", authToken, cacheDiscoverProjects, getDiscoverProjects); // Route để khám phá dự án
 router.post("/:id/join", authToken, joinProject); // Route để tham gia dự án(admin duyệt)
 router.post("/:id/leave", authToken, leaveProject); // Route để rời khỏi dự án(admin duyệt)
 router.delete("/:id", authToken, deleteProject); // Route để xóa dự án (chỉ cho phép Owner)

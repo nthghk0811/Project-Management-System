@@ -17,7 +17,7 @@ export default function Profile() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        // Bắn 5 API song song để lấy toàn bộ dữ liệu cần thiết
+
         const [profileRes, activitiesRes, projectsRes, statsRes, perfRes] = await Promise.all([
           getProfileApi(),
           getRecentActivitiesApi(),

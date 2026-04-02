@@ -224,7 +224,7 @@ export const getRecentActivities = async (req, res) => {
 
 // Dashboard - Statistics
 export const getTaskStatistics = async (req, res) => {
-   // ... Giữ nguyên như cũ của bạn
+
   try {
     const userId = req.user.id;
     const isAdmin = req.user.role === "admin";
@@ -270,19 +270,35 @@ export const getTaskStatistics = async (req, res) => {
 
 // WorkLogs
 export const getWorkLogs = async (req, res) => {
-  // ... Giữ nguyên như cũ của bạn
   try {
     const userId = req.user.id;
-    const myProjects = await Project.find({ $or: [{ owner: userId }, { members: userId }] }).select('_id');
-    const projectIds = myProjects.map(p => p._id);
-    const tasksWithTime = await Task.find({ project: { $in: projectIds }, timeSpent: { $gt: 0 } }).sort({ updatedAt: -1 });
+    // BẮT CHUẨN QUYỀN ADMIN BẰNG CHỮ THƯỜNG
+    const isAdmin = req.user.role?.toLowerCase() === "admin" || req.user.role?.toLowerCase() === "leader";
+
+    let taskFilter = { timeSpent: { $gt: 0 } }; // Chỉ lấy task nào có bấm giờ
+
+    // Nếu KHÔNG phải Admin, mới bị giới hạn trong các dự án của mình
+    if (!isAdmin) {
+      const myProjects = await Project.find({ $or: [{ owner: userId }, { members: userId }] }).select('_id');
+      const projectIds = myProjects.map(p => p._id);
+      taskFilter.project = { $in: projectIds };
+    }
+
+    // Populate thêm assignee để Sếp biết thằng nào làm
+    const tasksWithTime = await Task.find(taskFilter)
+      .populate('assignee', 'fullName avatar')
+      .sort({ updatedAt: -1 });
 
     const totalSeconds = tasksWithTime.reduce((sum, task) => sum + task.timeSpent, 0);
-    const recentLogs = tasksWithTime.slice(0, 10).map(task => {
+    
+    // Cắt 15 task gần nhất
+    const recentLogs = tasksWithTime.slice(0, 15).map(task => {
       const dateStr = new Date(task.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const assigneeName = task.assignee ? task.assignee.fullName : "Unassigned";
       return {
         id: task._id,
-        taskInfo: `${dateStr}||${task.title}`,
+        // Nối thêm Tên người làm vào chuỗi để ném lên Frontend cắt ra
+        taskInfo: `${dateStr}||${task.title}||${assigneeName}`,
         timeValue: parseFloat((task.timeSpent / 3600).toFixed(2)) 
       };
     });
@@ -294,13 +310,12 @@ export const getWorkLogs = async (req, res) => {
 };
 
 //performance
-// be/controllers/task.controller.js
 
 export const getPerformanceData = async (req, res) => {
   try {
     const userId = req.user.id;
-    // Kiểm tra quyền Admin/Leader
-    const isAdmin = req.user.role === "Admin" || req.user.role === "Leader";
+    // FIX LỖI "PHÂN QUYỀN": Phải toLowerCase() thì mới bắt được chữ 'admin'
+    const isAdmin = req.user.role?.toLowerCase() === "admin" || req.user.role?.toLowerCase() === "leader";
 
     const now = new Date();
 
@@ -315,14 +330,12 @@ export const getPerformanceData = async (req, res) => {
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
       const monthName = startOfMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
-      // Achieved: Số task ĐÃ HOÀN THÀNH trong tháng đó
       const achieved = await Task.countDocuments({
         ...baseFilter,
         status: "Done",
         updatedAt: { $gte: startOfMonth, $lt: endOfMonth }
       });
 
-      // Target: Task MỚI ĐƯỢC TẠO/GIAO trong tháng đó
       const assigned = await Task.countDocuments({
         ...baseFilter,
         createdAt: { $gte: startOfMonth, $lt: endOfMonth }
@@ -332,7 +345,6 @@ export const getPerformanceData = async (req, res) => {
       performanceData.push({ name: monthName, achieved, target });
     }
 
-    // BIỂU ĐỒ TRÒN: THỜI GIAN THEO DỰ ÁN
     const tasksWithTime = await Task.find({
       ...baseFilter,
       timeSpent: { $gt: 0 }
@@ -340,20 +352,19 @@ export const getPerformanceData = async (req, res) => {
 
     const projectTimeMap = {};
     tasksWithTime.forEach(t => {
-      // Nếu dự án đã bị xóa thì gom vào "Deleted Project"
       const pName = t.project ? t.project.name : "Deleted Project";
       if (!projectTimeMap[pName]) projectTimeMap[pName] = 0;
       projectTimeMap[pName] += t.timeSpent;
     });
 
-    const colors = ['#FF4D4F', '#36A2EB', '#FFCE56', '#8BC34A', '#FF9800', '#9C27B0'];
+    // MÀU SẮC ĐỒNG BỘ CSS NAVY / BLUE / SLATE THEO VIBE ENTERPRISE
+    const colors = ['#1B2559', '#0b57d0', '#64748b', '#3b82f6', '#94a3b8', '#0284c7'];
     const workLogData = Object.keys(projectTimeMap).map((key, index) => ({
       name: key,
       value: parseFloat((projectTimeMap[key] / 3600).toFixed(2)), 
       color: colors[index % colors.length]
     }));
 
-    // INSIGHTS: CÁC TASK CẦN CHÚ Ý
     const insights = await Task.find({
       ...baseFilter,
       status: { $ne: 'Done' }

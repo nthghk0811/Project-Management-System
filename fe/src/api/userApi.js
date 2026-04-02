@@ -1,7 +1,7 @@
 // fe/src/api/userApi.js
 import axios from "axios";
 
-const API = "http://localhost:8080/api/users";
+const API = process.env.REACT_APP_API_URL + "/api/users";
 
 const getConfig = () => {
   const token = localStorage.getItem("token");

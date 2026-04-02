@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Lấy link API từ file .env, nếu không có thì mặc định lấy localhost (để code ở máy không bị lỗi)
-const BASE_URL = process.env.REACT_APP_API_URL 
+const BASE_URL = import.meta.env.VITE_API_URL 
 
 const API = axios.create({
   baseURL: `${BASE_URL}/api`,

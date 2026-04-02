@@ -9,7 +9,7 @@ import { getMyProjectsApi, getDiscoverProjectsApi, joinProjectApi, deleteProject
 import { io } from "socket.io-client"; 
 
 export default function Projects() {
-const api = process.env.REACT_APP_API_URL;
+const api = import.meta.env.VITE_API_URL;
 
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

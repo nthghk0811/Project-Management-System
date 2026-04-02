@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Khai báo biến môi trường chung trên đầu file
-const BASE_URL = process.env.REACT_APP_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 // API cứng cho profile
 const PROFILE_API = `${BASE_URL}/api/users/me`;

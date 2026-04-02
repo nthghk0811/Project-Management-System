@@ -10,7 +10,7 @@ import { io } from "socket.io-client";
 
 export default function ProjectDetail() {
 
-  const api = process.env.REACT_APP_API_URL;
+  const api = import.meta.env.VITE_API_URL;
 
   const { id } = useParams();
   const { user } = useAuth();

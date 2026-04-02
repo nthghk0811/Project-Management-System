@@ -11,7 +11,7 @@ import { getMyProjectsApi, getPendingRequestsApi, approveJoinRequestApi, rejectJ
 import { getAllUsersApi, updateUserRoleApi, deleteUserApi, createUserApi } from "../../api/userApi"; 
 
 export default function AdminApproval() {
-  const api = process.env.REACT_APP_API_URL;
+  const api = import.meta.env.VITE_API_URL;
 
   const { user } = useAuth(); // Lấy thông tin người đang đăng nhập
   const [activeTab, setActiveTab] = useState("approvals"); 

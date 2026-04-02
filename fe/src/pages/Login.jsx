@@ -94,9 +94,9 @@ export default function Login() {
       <div className="w-full lg:w-1/2 flex flex-col relative bg-white">
         
         {/* Mobile Header (Only shows on small screens) */}
-        <div className="p-6 lg:hidden flex justify-center border-b border-slate-100">
+        {/* <div className="p-6 lg:hidden flex justify-center border-b border-slate-100">
           <Link to="/"><img src={logo} alt="logo" className="h-8" /></Link>
-        </div>
+        </div> */}
 
         <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
           <form onSubmit={handleSubmit} className="w-full max-w-[400px]">

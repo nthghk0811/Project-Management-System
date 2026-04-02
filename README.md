@@ -7,7 +7,7 @@
 ## 📖 Overview
 SyncBoard is a comprehensive, Jira-like project management platform designed to help teams collaborate effectively. It focuses on real-time data synchronization, robust role-based access control, and high performance for handling complex task workflows.
 
-🔗 **Live Demo:** (https://project-bqqb9.vercel.app)
+🔗 **Live Demo:** [https://project-bqqb9.vercel.app](https://project-bqqb9.vercel.app)
 *(Note: Please allow 30-50 seconds for the initial load as the backend is hosted on a free Render instance).*
 
 ## ✨ Key Features
@@ -29,41 +29,65 @@ To run this project locally, you will need Node.js, MongoDB, and Redis installed
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/nthghk0811/Project-Management-System
+git clone https://github.com/nthghk0811/Project-Management-System.git
 cd Project-Management-System
 
-### 2. ⚙️ Backend Setup
-Open a new terminal, navigate to /be, and install the libraries:
+### 2\. ⚙️ Backend Setup
+
+Open a new terminal, navigate to `/be`, and install the libraries:
+
 ```bash
 cd be
 npm install
+```
 
-Create a .env file in the directory and fill in your security settings:
+Create a `.env` file in the `be` directory and fill in your security settings:
 
+```env
 PORT=8080
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret_key
 REDIS_URL=your_redis_url
 CLOUDINARY_URL=your_cloudinary_url
 CLIENT_URL=http://localhost:5173
+```
 
 Run Backend server:
 
+```bash
 npm run dev
+```
 
-3. 🎨 Frontend Setup
+### 3\. 🎨 Frontend Setup
 
 Open another terminal, return to the root directory, and then navigate to the frontend directory:
+
+```bash
 cd ../fe
 npm install
+```
 
-Create a .env file in the fe directory to connect to the local backend:
+Create a `.env` file in the `fe` directory to connect to the local backend:
+
+```env
 VITE_API_URL=http://localhost:8080
+```
 
-📸 Screenshots
-![Admin Dashboard](image.png)
-![User Dashboard](image-1.png)
+Run Frontend development server:
 
-👨‍💻 Author
-Nguyen Hoang Hai
-GitHub: @nthghk0811
+```bash
+npm run dev
+```
+
+## 📸 Screenshots
+
+## 👨‍💻 Author
+
+**Nguyen Hoang Hai**
+
+  * GitHub: [@nthghk0811](https://www.google.com/search?q=https://github.com/nthghk0811)
+
+<!-- end list -->
+
+```
+```

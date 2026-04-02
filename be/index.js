@@ -1,12 +1,10 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import helmet from 'helmet';//header security
-import rateLimit from 'express-rate-limit';//limit request
-// import mongoSanitize from 'express-mongo-sanitize';//prevent NoSQL injection
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
-//socket
-import http from 'http'; // Import thêm http có sẵn của Node.js
+import http from 'http'; 
 import { Server } from 'socket.io';
 
 import { connectRedis } from './config/redis.js';
@@ -20,13 +18,27 @@ import searchRoute from './routes/search.route.js';
 import notificationRoute from './routes/notification.route.js';
 import supportRoute from './routes/support.route.js'; 
 
-
 dotenv.config();
 const PORT = process.env.PORT || 8080;
 const app = express();
+
+// ==========================================
+// 1. CẤU HÌNH CORS CHUẨN CHO CẢ LOCAL VÀ VERCEL
+// ==========================================
+const allowedOrigins = [
+  process.env.CLIENT_URL, 
+  'http://localhost:5173' 
+];
+
 app.use(cors({
-    origin: "http://localhost:5173",
-    credentials: true
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
 }));
 
 app.use(helmet());
@@ -37,25 +49,24 @@ app.use(rateLimit({
     legacyHeaders: false, 
 }));
 
-
 app.use(express.json());
 
 const server = http.createServer(app);
 
-// 2. Gắn "Tổng đài" Socket.io lên cái HTTP server đó
+// ==========================================
+// 2. CẤU HÌNH SOCKET.IO
+// ==========================================
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173", 
+    origin: allowedOrigins, // Dùng chung mảng VIP list ở trên cho tiện
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
 
-// 3. Lắng nghe ai đó nhấc máy gọi lên
 io.on("connection", (socket) => {
   console.log(`🟢 Có người vừa kết nối Socket! ID: ${socket.id}`);
 
-  // Khi 1 user vào xem 1 Project, cho họ vào 1 "Phòng" riêng của Project đó
   socket.on("join_project_room", (projectId) => {
     socket.join(projectId);
     console.log(`User ${socket.id} vừa chui vào phòng Project: ${projectId}`);
@@ -71,11 +82,11 @@ io.on("connection", (socket) => {
   });
 });
 
-// 4. Lưu cái "Tổng đài" io này vào app để xài ké ở các file Controller
 app.set("io", io);
 
-
-// app.use(mongoSanitize());
+// ==========================================
+// 3. KHAI BÁO ROUTES
+// ==========================================
 app.use('/api/auth', authRoute)
 app.use('/api/projects', projectRoute)
 app.use('/api/users', userRoute)
@@ -84,32 +95,30 @@ app.use('/api/search', searchRoute)
 app.use('/api/notifications', notificationRoute)
 app.use('/api/support', supportRoute)
 
-await mongoose.connect(process.env.MONGO_URI);
+app.get('/', (req, res) => {
+    res.send('SyncBoard Backend is running!');
+});
+
+// ==========================================
+// 4. KẾT NỐI DB VÀ CHẠY SERVER ĐÚNG CÁCH
+// ==========================================
 const startServer = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("Connected to MongoDB");
     
-    await connectRedis(); // 👈 THIẾU DÒNG NÀY LÀ REDIS NẰM CHẾT LÂM SÀNG!
+    await connectRedis(); 
+    console.log("Connected to Redis");
     
-    app.listen(8080, () => {
-      console.log("Server is running on port 8080");
+    // GỌI ĐÚNG MỘT LẦN SERVER.LISTEN Ở ĐÂY THÔI
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {
-    console.log(error);
+    console.log("Lỗi khởi động Server:", error);
   }
 };
 
 startServer();
 
-
-
-app.get('/', (req, res) => {
-    res.send('Hello World!');
-});
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
 export default app;
-
-

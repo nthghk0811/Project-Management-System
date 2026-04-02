@@ -24,9 +24,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (data) => {
+    //return res.data.user, res.data.token
+
     const res = await loginApi(data);
     localStorage.setItem("token", res.data.token);
     setUser(res.data.user);
+    return { user: res.data.user, token: res.data.token };
   };
 
   const register = async (data) => {

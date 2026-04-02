@@ -24,17 +24,20 @@ export default function Login() {
     e.preventDefault();
     try {
       setIsLoading(true);
-      await login(form);
+      
+      // 1. Phải dùng "destructuring" để bóc tách đúng cái user ra từ cục object mà hàm login trả về
+      const { user: loggedInUser } = await login(form);
       
       showToast("Login successful! Welcome back.", "success");
-      //check role, if admin thì redirect sang admin page, else redirect sang dashboard
-      setTimeout(() => {
-        if (user?.role.toLowerCase() === "admin") {
-          navigate("/admin/dashboard", { replace: true });
-        } else {
-          navigate("/dashboard", { replace: true });
-        }
-      }, 1000);
+      
+      // 2. KHÔNG DÙNG SETTIMEOUT NỮA. 
+      // Biến loggedInUser giờ đã chứa chuẩn xác thông tin user, rẽ nhánh luôn!
+      if (loggedInUser?.role?.toLowerCase() === "admin") {
+        navigate("/admin/dashboard", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
+
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Login failed. Please check your credentials.";
       showToast(errorMsg, "error");

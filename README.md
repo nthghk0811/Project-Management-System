@@ -80,6 +80,9 @@ npm run dev
 ```
 
 ## 📸 Screenshots
+![Admin Dashboard](image.png)
+
+![User Dashboard](image-1.png)
 
 ## 👨‍💻 Author
 
